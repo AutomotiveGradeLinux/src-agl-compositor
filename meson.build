@@ -42,7 +42,7 @@ foreach func: optional_libc_funcs
 endforeach
 
 dep_libsystemd = dependency('libsystemd', required: false)
-dep_scanner = dependency('wayland-scanner')
+dep_scanner = dependency('wayland-scanner', native: true)
 prog_scanner = find_program(dep_scanner.get_pkgconfig_variable('wayland_scanner'))
 dep_wp = dependency('wayland-protocols', version: '>= 1.18')
 dir_wp_base = dep_wp.get_pkgconfig_variable('pkgdatadir')
