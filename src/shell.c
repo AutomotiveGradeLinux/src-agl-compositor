@@ -1134,8 +1134,8 @@ insert_black_curtain(struct ivi_output *output)
 
 	if ((!output &&
 	    !output->fullscreen_view.fs &&
-	    !output->fullscreen_view.fs->view) || !output->output ||
-	    !output->fullscreen_view.fs) {
+	    !output->fullscreen_view.fs->view) ||
+	    !output->output || !output->fullscreen_view.fs) {
 		weston_log("Output %s doesn't have a surface installed!\n", output->name);
 		return;
 	}
