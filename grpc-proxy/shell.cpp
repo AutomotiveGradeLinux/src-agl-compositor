@@ -61,7 +61,10 @@ Shell::ActivateApp(const std::string &app_id, const std::string &output_name)
 void
 Shell::DeactivateApp(const std::string &app_id)
 {
-	(void) app_id;
+	struct agl_shell *shell = this->m_shell.get();
+
+	agl_shell_deactivate_app(shell, app_id.c_str());
+	wl_display_flush(m_shell_data->wl_display);
 }
 
 void

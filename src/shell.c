@@ -1439,6 +1439,15 @@ shell_activate_app(struct wl_client *client,
 }
 
 static void
+shell_new_deactivate_app(struct wl_client *client, struct wl_resource *shell_res,
+			 const char *app_id)
+{
+	struct ivi_compositor *ivi = wl_resource_get_user_data(shell_res);
+
+	ivi_layout_deactivate(ivi, app_id);
+}
+
+static void
 shell_desktop_activate_app(struct wl_client *client,
 			   struct wl_resource *shell_res,
 			   const char *app_id, const char *data,
@@ -1518,7 +1527,8 @@ static const struct agl_shell_interface agl_shell_implementation = {
 	.set_panel = shell_set_panel,
 	.activate_app = shell_activate_app,
 	.destroy = shell_destroy,
-	.set_activate_region = shell_set_activate_region
+	.set_activate_region = shell_set_activate_region,
+	.deactivate_app = shell_new_deactivate_app,
 };
 
 static const struct agl_shell_ext_interface agl_shell_ext_implementation = {
@@ -1818,7 +1828,7 @@ int
 ivi_shell_create_global(struct ivi_compositor *ivi)
 {
 	ivi->agl_shell = wl_global_create(ivi->compositor->wl_display,
-					  &agl_shell_interface, 4,
+					  &agl_shell_interface, 5,
 					  ivi, bind_agl_shell);
 	if (!ivi->agl_shell) {
 		weston_log("Failed to create wayland global.\n");
