@@ -114,7 +114,8 @@ GrpcServiceImpl::SetAppFloat(grpc::CallbackServerContext *context,
                             const ::agl_shell_ipc::FloatRequest* request,
                             ::agl_shell_ipc::FloatResponse* /* response */)
 {
-	m_aglShell->SetAppFloat(request->app_id());
+	m_aglShell->SetAppFloat(request->app_id(),
+				request->x_pos(), request->y_pos());
 
 	grpc::ServerUnaryReactor* reactor = context->DefaultReactor();
 	reactor->Finish(grpc::Status::OK);

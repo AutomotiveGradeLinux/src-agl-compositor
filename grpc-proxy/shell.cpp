@@ -68,9 +68,12 @@ Shell::DeactivateApp(const std::string &app_id)
 }
 
 void
-Shell::SetAppFloat(const std::string &app_id)
+Shell::SetAppFloat(const std::string &app_id, int32_t x_pos, int32_t y_pos)
 {
-	(void) app_id;
+	struct agl_shell *shell = this->m_shell.get();
+
+	agl_shell_set_app_float(shell, app_id.c_str(), x_pos, y_pos);
+	wl_display_flush(m_shell_data->wl_display);
 }
 
 void

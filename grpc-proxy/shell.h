@@ -41,5 +41,6 @@ public:
 	void ActivateApp(const std::string &app_id, const std::string &output_name);
 	void DeactivateApp(const std::string &app_id);
 	void SetAppSplit(const std::string &app_id, uint32_t orientation);
-	void SetAppFloat(const std::string &app_id);
+	void SetAppFloat(const std::string &app_id,
+			 int32_t x_pos, int32_t y_pos);
 };

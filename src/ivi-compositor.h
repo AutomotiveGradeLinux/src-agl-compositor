@@ -507,4 +507,10 @@ shell_send_app_state(struct ivi_compositor *ivi, const char *app_id,
 void
 ivi_layout_destroy_saved_outputs(struct ivi_compositor *ivi);
 
+struct weston_output *
+get_default_output(struct weston_compositor *compositor);
+
+struct weston_output *
+get_focused_output(struct weston_compositor *compositor);
+
 #endif

@@ -22,7 +22,7 @@
     FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
     DEALINGS IN THE SOFTWARE.
   </copyright>
-  <interface name="agl_shell" version="5">
+  <interface name="agl_shell" version="6">
     <description summary="user interface for Automotive Grade Linux platform">
       Starting with version 2 of the protocol, the client is required to wait
       for the 'bound_ok' or 'bound_fail' events in order to proceed further.
@@ -216,6 +216,32 @@
         description of app_id.
       </description>
       <arg name="app_id" type="string"/>
+    </request>
+
+    <request name="set_app_float" since="6">
+      <description summary="set the window identified by app_id as float">
+        Makes the application identified by app_id as floating. If the
+        application's window is already mapped, in a maximized, normal state,
+        it would transition to the float state.
+
+        For applications that want to modify their own state, this request
+        must be done before the initial surface commit in order to take effect.
+
+        If the application is already in floating state, this request wouldn't
+        do anything.
+
+        There's no persistence of this request, once the application terminated
+        you'll to issue this request again for that particular app_id.
+
+        The x, and y values would be initial position of the window where the
+        window surface will be placed.
+
+        See xdg_toplevel.set_app_id from the xdg-shell protocol for a
+        description of app_id.
+      </description>
+      <arg name="app_id" type="string"/>
+      <arg name="x" type="int" summary="x position"/>
+      <arg name="y" type="int" summary="y position"/>
     </request>
   </interface>
 

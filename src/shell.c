@@ -1448,6 +1448,63 @@ shell_new_deactivate_app(struct wl_client *client, struct wl_resource *shell_res
 }
 
 static void
+shell_set_app_float(struct wl_client *client, struct wl_resource *shell_res,
+		   const char *app_id, int32_t x_pos, int32_t y_pos)
+{
+	struct ivi_compositor *ivi = wl_resource_get_user_data(shell_res);
+	struct weston_output *output = get_focused_output(ivi->compositor);
+	struct ivi_output *ivi_output;
+	struct ivi_surface *surf = ivi_find_app(ivi, app_id);
+
+	if (!output)
+		output = get_default_output(ivi->compositor);
+
+	ivi_output = to_ivi_output(output);
+
+	/* verify if already mapped as desktop role, regular, unmap it, so we
+	 * can make it float */
+	if (surf && surf->role == IVI_SURFACE_ROLE_DESKTOP) {
+		struct weston_view *ev = surf->view;
+		struct weston_desktop_surface *dsurf = surf->dsurface;
+		struct ivi_bounding_box bb = {};
+
+		/* XXX: if this is useful we could bring it as active then make
+		 * it float, but avoid doing it for the moment */
+		if (surf != ivi_output->active)
+			return;
+
+		ivi_layout_deactivate(ivi, app_id);
+		surf->hidden_layer_output = ivi_output;
+
+		/* set attributes */
+		surf->popup.output = ivi_output;
+
+		surf->popup.x = x_pos;
+		surf->popup.y = y_pos;
+		surf->popup.bb = bb;
+
+		/* change the role */
+		surf->role = IVI_SURFACE_ROLE_NONE;
+
+		wl_list_remove(&surf->link);
+		wl_list_init(&surf->link);
+
+		ivi_set_desktop_surface_popup(surf);
+
+		weston_desktop_surface_set_maximized(dsurf, false);
+		weston_desktop_surface_set_size(dsurf, 0, 0);
+
+		/* add to hidden layer */
+		weston_layer_entry_insert(&ivi->hidden.view_list, &ev->layer_link);
+		weston_compositor_schedule_repaint(ivi->compositor);
+
+	} else if (!surf || (surf && surf->role != IVI_SURFACE_ROLE_POPUP)) {
+		ivi_set_pending_desktop_surface_popup(ivi_output, x_pos, y_pos, 
+						      0, 0, 0, 0, app_id);
+	}
+}
+
+static void
 shell_desktop_activate_app(struct wl_client *client,
 			   struct wl_resource *shell_res,
 			   const char *app_id, const char *data,
@@ -1529,6 +1586,7 @@ static const struct agl_shell_interface agl_shell_implementation = {
 	.destroy = shell_destroy,
 	.set_activate_region = shell_set_activate_region,
 	.deactivate_app = shell_new_deactivate_app,
+	.set_app_float = shell_set_app_float,
 };
 
 static const struct agl_shell_ext_interface agl_shell_ext_implementation = {
@@ -1828,7 +1886,7 @@ int
 ivi_shell_create_global(struct ivi_compositor *ivi)
 {
 	ivi->agl_shell = wl_global_create(ivi->compositor->wl_display,
-					  &agl_shell_interface, 5,
+					  &agl_shell_interface, 6,
 					  ivi, bind_agl_shell);
 	if (!ivi->agl_shell) {
 		weston_log("Failed to create wayland global.\n");

@@ -788,6 +788,19 @@ ivi_compute_popup_position(const struct weston_output *output, struct weston_vie
 }
 
 
+static bool
+ivi_surf_in_hidden_layer(struct ivi_compositor *ivi, struct ivi_surface *surface)
+{
+	struct weston_view *ev;
+
+	wl_list_for_each(ev, &ivi->hidden.view_list.link, layer_link.link) {
+		if (ev == surface->view)
+			return true;
+	}
+
+	return false;
+}
+
 void
 ivi_layout_popup_committed(struct ivi_surface *surface)
 {
@@ -818,6 +831,10 @@ ivi_layout_popup_committed(struct ivi_surface *surface)
 		return;
 
 	assert(surface->role == IVI_SURFACE_ROLE_POPUP);
+
+	/* remove it from hidden layer if present */
+	if (ivi_surf_in_hidden_layer(ivi, surface))
+		weston_layer_entry_remove(&view->layer_link);
 
 	weston_view_set_output(view, woutput);
 
