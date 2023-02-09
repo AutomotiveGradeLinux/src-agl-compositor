@@ -77,6 +77,15 @@ Shell::SetAppFloat(const std::string &app_id, int32_t x_pos, int32_t y_pos)
 }
 
 void
+Shell::SetAppNormal(const std::string &app_id)
+{
+	struct agl_shell *shell = this->m_shell.get();
+
+	agl_shell_set_app_normal(shell, app_id.c_str());
+	wl_display_flush(m_shell_data->wl_display);
+}
+
+void
 Shell::SetAppSplit(const std::string &app_id, uint32_t orientation)
 {
 	(void) app_id;

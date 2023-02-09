@@ -243,6 +243,15 @@
       <arg name="x" type="int" summary="x position"/>
       <arg name="y" type="int" summary="y position"/>
     </request>
+
+    <request name="set_app_normal" since="6">
+      <description summary="set the window identified by app_id as normally started">
+      Returns the application identified by app_id as it was in the normal state.
+      This is useful to come back from other states to the maximized state, the
+      normal state applications are started.
+      </description>
+      <arg name="app_id" type="string"/>
+    </request>
   </interface>
 
   <interface name="agl_shell_ext" version="1">

@@ -1483,6 +1483,7 @@ shell_set_app_float(struct wl_client *client, struct wl_resource *shell_res,
 		surf->popup.y = y_pos;
 		surf->popup.bb = bb;
 
+
 		/* change the role */
 		surf->role = IVI_SURFACE_ROLE_NONE;
 
@@ -1502,6 +1503,56 @@ shell_set_app_float(struct wl_client *client, struct wl_resource *shell_res,
 		ivi_set_pending_desktop_surface_popup(ivi_output, x_pos, y_pos, 
 						      0, 0, 0, 0, app_id);
 	}
+}
+
+static void
+shell_set_app_normal(struct wl_client *client, struct wl_resource *shell_res,
+		     const char *app_id)
+{
+	struct ivi_compositor *ivi = wl_resource_get_user_data(shell_res);
+	struct ivi_surface *surf = ivi_find_app(ivi, app_id);
+	struct weston_output *output = get_focused_output(ivi->compositor);
+	struct ivi_output *ivi_output;
+	struct weston_desktop_surface *dsurf;
+	struct weston_geometry area = {};
+
+
+	if (!surf || (surf && surf->role == IVI_SURFACE_ROLE_DESKTOP))
+		return;
+
+	if (!output)
+		output = get_default_output(ivi->compositor);
+
+	dsurf = surf->dsurface;
+	ivi_output = to_ivi_output(output);
+
+	weston_layer_entry_remove(&surf->view->layer_link);
+	weston_view_geometry_dirty(surf->view);
+	weston_surface_damage(surf->view->surface);
+
+	/* change the role */
+	surf->role = IVI_SURFACE_ROLE_NONE;
+	surf->desktop.pending_output = ivi_output;
+
+	wl_list_remove(&surf->link);
+	wl_list_init(&surf->link);
+
+	ivi_set_desktop_surface(surf);
+
+	if (ivi_output->area_activation.width ||
+	    ivi_output->area_activation.height)
+		area = ivi_output->area_activation;
+	else
+		area = ivi_output->area;
+
+	weston_desktop_surface_set_maximized(dsurf, true);
+	weston_desktop_surface_set_size(dsurf, area.width, area.height);
+
+	/* add to hidden layer */
+	weston_layer_entry_insert(&ivi->hidden.view_list,
+				  &surf->view->layer_link);
+	weston_compositor_schedule_repaint(ivi->compositor);
+
 }
 
 static void
@@ -1587,6 +1638,7 @@ static const struct agl_shell_interface agl_shell_implementation = {
 	.set_activate_region = shell_set_activate_region,
 	.deactivate_app = shell_new_deactivate_app,
 	.set_app_float = shell_set_app_float,
+	.set_app_normal = shell_set_app_normal,
 };
 
 static const struct agl_shell_ext_interface agl_shell_ext_implementation = {

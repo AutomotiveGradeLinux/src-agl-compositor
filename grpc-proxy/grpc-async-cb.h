@@ -84,6 +84,10 @@ public:
 			const ::agl_shell_ipc::OutputRequest* /* request */,
 			::agl_shell_ipc::ListOutputResponse* response) override;
 
+	grpc::ServerUnaryReactor *SetAppNormal(grpc::CallbackServerContext *context,
+			const ::agl_shell_ipc::NormalRequest* request,
+			::agl_shell_ipc::NormalResponse* /*response*/) override;
+
 	grpc::ServerWriteReactor< ::agl_shell_ipc::AppStateResponse>* AppStatusState(
 	      ::grpc::CallbackServerContext* /*context*/,
 	      const ::agl_shell_ipc::AppStateRequest* /*request*/)  override;

@@ -248,6 +248,8 @@ ivi_layout_activate_complete(struct ivi_output *output,
 
 
 	weston_view_set_output(view, woutput);
+	/* drop any previous masks set on this view */
+	weston_view_set_mask_infinite(view);
 
 	if (surf->role != IVI_SURFACE_ROLE_BACKGROUND)
 		weston_view_set_position(view,
