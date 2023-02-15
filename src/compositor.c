@@ -502,6 +502,7 @@ head_disable(struct ivi_compositor *ivi, struct weston_head *head)
 		}
 	}
 	wl_list_remove(&ivi_output->link);
+	free(ivi_output->app_ids);
 	free(ivi_output);
 }
 
