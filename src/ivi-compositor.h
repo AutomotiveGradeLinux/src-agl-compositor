@@ -104,6 +104,7 @@ struct ivi_compositor {
 	struct wl_list desktop_clients;	/* desktop_client::link */
 
 	struct wl_list outputs; /* ivi_output.link */
+	struct wl_list saved_outputs; /* ivi_output.link */
 	struct wl_list surfaces; /* ivi_surface.link */
 
 	struct weston_desktop *desktop;
@@ -125,6 +126,7 @@ struct ivi_compositor {
 	struct weston_layer popup;
 	struct weston_layer fullscreen;
 
+	bool need_ivi_output_relayout;
 	struct wl_list child_process_list;
 };
 
@@ -502,5 +504,7 @@ sigchld_handler(int signal_number, void *data);
 void
 shell_send_app_state(struct ivi_compositor *ivi, const char *app_id,
 		     enum agl_shell_app_state state);
+void
+ivi_layout_destroy_saved_outputs(struct ivi_compositor *ivi);
 
 #endif
