@@ -79,6 +79,95 @@ sigint_helper(int sig)
        raise(SIGUSR2);
 }
 
+void
+ivi_layout_save(struct ivi_compositor *ivi, struct ivi_output *output)
+{
+	struct ivi_output *new_output;
+	ivi->need_ivi_output_relayout = true;
+
+	new_output = zalloc(sizeof(*new_output));
+
+	new_output->ivi = ivi;
+	new_output->background = output->background;
+
+	new_output->top = output->top;
+	new_output->bottom = output->bottom;
+	new_output->left = output->left;
+	new_output->right = output->right;
+
+	new_output->active = output->active;
+	new_output->previous_active = output->previous_active;
+	new_output->name = strdup(output->name);
+	if (output->app_ids)
+		new_output->app_ids = strdup(output->app_ids);
+
+	new_output->area = output->area;
+	new_output->area_saved = output->area_saved;
+	new_output->area_activation = output->area_activation;
+
+	weston_log("saving output layout for output %s\n", new_output->name);
+
+	wl_list_insert(&ivi->saved_outputs, &new_output->link);
+}
+
+void
+ivi_layout_restore(struct ivi_compositor *ivi, struct ivi_output *n_output)
+{
+	struct ivi_output *output = NULL;
+	struct ivi_output *iter_output;
+
+	if (!ivi->need_ivi_output_relayout)
+		return;
+
+	ivi->need_ivi_output_relayout = false;
+
+	wl_list_for_each(iter_output, &ivi->saved_outputs, link) {
+		if (strcmp(n_output->name, iter_output->name) == 0) {
+			output = iter_output;
+			break;
+		}
+	}
+
+	if (!output)
+		return;
+
+	weston_log("restoring output layout for output %s\n", output->name);
+	n_output->background = output->background;
+
+	n_output->top = output->top;
+	n_output->bottom = output->bottom;
+	n_output->left = output->left;
+	n_output->right = output->right;
+
+	n_output->active = output->active;
+	n_output->previous_active = output->previous_active;
+	if (output->app_ids)
+		n_output->app_ids = strdup(output->app_ids);
+
+	n_output->area = output->area;
+	n_output->area_saved = output->area_saved;
+	n_output->area_activation = output->area_activation;
+
+	free(output->app_ids);
+	free(output->name);
+	wl_list_remove(&output->link);
+	free(output);
+}
+
+void
+ivi_layout_destroy_saved_outputs(struct ivi_compositor *ivi)
+{
+	struct ivi_output *output, *output_next;
+
+	wl_list_for_each_safe(output, output_next, &ivi->saved_outputs, link) {
+		free(output->app_ids);
+		free(output->name);
+
+		wl_list_remove(&output->link);
+		free(output);
+	}
+}
+
 static void
 handle_output_destroy(struct wl_listener *listener, void *data)
 {
@@ -92,6 +181,8 @@ handle_output_destroy(struct wl_listener *listener, void *data)
 		weston_surface_destroy(output->fullscreen_view.fs->view->surface);
 		output->fullscreen_view.fs->view = NULL;
 	}
+
+	ivi_layout_save(output->ivi, output);
 
 	output->output = NULL;
 	wl_list_remove(&output->output_destroy.link);
@@ -453,6 +544,8 @@ try_attach_enable_heads(struct ivi_output *output)
 	/* For each successful head attached */
 	for (size_t i = fail_len; i < output->add_len; ++i)
 		add_head_destroyed_listener(output->add[i]);
+
+	ivi_layout_restore(output->ivi, output);
 
 	output->add_len = fail_len;
 	return 0;
@@ -1688,6 +1781,7 @@ int wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_da
 	};
 
 	wl_list_init(&ivi.outputs);
+	wl_list_init(&ivi.saved_outputs);
 	wl_list_init(&ivi.surfaces);
 	wl_list_init(&ivi.pending_surfaces);
 	wl_list_init(&ivi.popup_pending_apps);
