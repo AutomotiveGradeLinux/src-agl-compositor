@@ -1088,7 +1088,8 @@ create_black_curtain_view(struct ivi_output *output)
 bool
 output_has_black_curtain(struct ivi_output *output)
 {
-	return (output->fullscreen_view.fs->view &&
+	return (output->fullscreen_view.fs &&
+		output->fullscreen_view.fs->view &&
 		output->fullscreen_view.fs->view->is_mapped &&
 	        output->fullscreen_view.fs->view->surface->is_mapped);
 }
