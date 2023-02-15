@@ -1409,10 +1409,20 @@ shell_activate_app(struct wl_client *client,
 		   const char *app_id,
 		   struct wl_resource *output_res)
 {
-	struct weston_head *head = weston_head_from_resource(output_res);
-	struct weston_output *woutput = weston_head_get_output(head);
-	struct ivi_compositor *ivi = wl_resource_get_user_data(shell_res);
-	struct ivi_output *output = to_ivi_output(woutput);
+	struct weston_head *head;
+	struct weston_output *woutput;
+	struct ivi_compositor *ivi;
+	struct ivi_output *output;
+
+	head = weston_head_from_resource(output_res);
+	if (!head) {
+		weston_log("Invalid output to activate '%s' on\n", app_id);
+		return;
+	}
+
+	woutput = weston_head_get_output(head);
+	ivi = wl_resource_get_user_data(shell_res);
+	output = to_ivi_output(woutput);
 
 	if (wl_resource_get_version(shell_res) >=
 	    AGL_SHELL_BOUND_OK_SINCE_VERSION &&
