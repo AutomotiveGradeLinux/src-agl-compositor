@@ -86,6 +86,15 @@ Shell::SetAppNormal(const std::string &app_id)
 }
 
 void
+Shell::SetAppFullscreen(const std::string &app_id)
+{
+	struct agl_shell *shell = this->m_shell.get();
+
+	agl_shell_set_app_fullscreen(shell, app_id.c_str());
+	wl_display_flush(m_shell_data->wl_display);
+}
+
+void
 Shell::SetAppSplit(const std::string &app_id, uint32_t orientation)
 {
 	(void) app_id;

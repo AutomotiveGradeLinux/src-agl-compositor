@@ -218,6 +218,7 @@ ivi_layout_activate_complete(struct ivi_output *output,
 	struct weston_seat *wseat = get_ivi_shell_weston_first_seat(ivi);
 	struct ivi_shell_seat *ivi_seat = get_ivi_shell_seat(wseat);
 	const char *app_id = weston_desktop_surface_get_app_id(surf->dsurface);
+	bool update_previous = true;
 
 	if (weston_view_is_mapped(view)) {
 		weston_layer_entry_remove(&view->layer_link);
@@ -288,7 +289,22 @@ ivi_layout_activate_complete(struct ivi_output *output,
 			weston_layer_entry_remove(&output->active->view->layer_link);
 		}
 	}
-	output->previous_active = output->active;
+
+	if (output->previous_active && output->active) {
+		const char *c_app_id =
+			weston_desktop_surface_get_app_id(output->active->dsurface);
+
+		/* if the currently activated app_id is the same as the one
+		 * we're trying to complete activation with means we're
+		 * operating on the same app_id so do update previous_active as
+		 * it will overwrite it with the same value */
+		if (!strcmp(c_app_id, app_id)) {
+			update_previous = false;
+		}
+	}
+
+	if (update_previous)
+		output->previous_active = output->active;
 	output->active = surf;
 	surf->current_completed_output = output;
 
@@ -596,7 +612,8 @@ ivi_layout_fullscreen_committed(struct ivi_surface *surface)
 
 	assert(surface->role == IVI_SURFACE_ROLE_FULLSCREEN);
 
-	if (weston_view_is_mapped(view))
+
+	if (surface->state == FULLSCREEN && weston_view_is_mapped(view))
 		return;
 
 	/* if we still get here but we haven't resized so far, send configure
@@ -632,7 +649,7 @@ ivi_layout_fullscreen_committed(struct ivi_surface *surface)
 	}
 
 	/* this implies we resized correctly */
-	if (!weston_view_is_mapped(view)) {
+	if (!weston_view_is_mapped(view) || surface->state != FULLSCREEN) {
 		weston_layer_entry_remove(&view->layer_link);
 
 		weston_view_set_output(view, woutput);
@@ -796,6 +813,11 @@ ivi_surf_in_hidden_layer(struct ivi_compositor *ivi, struct ivi_surface *surface
 	struct weston_view *ev;
 
 	wl_list_for_each(ev, &ivi->hidden.view_list.link, layer_link.link) {
+		if (ev == surface->view)
+			return true;
+	}
+
+	wl_list_for_each(ev, &ivi->fullscreen.view_list.link, layer_link.link) {
 		if (ev == surface->view)
 			return true;
 	}

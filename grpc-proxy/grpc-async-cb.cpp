@@ -135,6 +135,18 @@ GrpcServiceImpl::SetAppNormal(grpc::CallbackServerContext *context,
 }
 
 grpc::ServerUnaryReactor *
+GrpcServiceImpl::SetAppFullscreen(grpc::CallbackServerContext *context,
+                            const ::agl_shell_ipc::FullscreenRequest* request,
+                            ::agl_shell_ipc::FullscreenResponse* /* response */)
+{
+	m_aglShell->SetAppFullscreen(request->app_id());
+
+	grpc::ServerUnaryReactor* reactor = context->DefaultReactor();
+	reactor->Finish(grpc::Status::OK);
+	return reactor;
+}
+
+grpc::ServerUnaryReactor *
 GrpcServiceImpl::SetAppSplit(grpc::CallbackServerContext *context,
            const ::agl_shell_ipc::SplitRequest* request,
            ::agl_shell_ipc::SplitResponse* /*response*/)

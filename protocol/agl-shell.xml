@@ -22,7 +22,7 @@
     FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
     DEALINGS IN THE SOFTWARE.
   </copyright>
-  <interface name="agl_shell" version="6">
+  <interface name="agl_shell" version="7">
     <description summary="user interface for Automotive Grade Linux platform">
       Starting with version 2 of the protocol, the client is required to wait
       for the 'bound_ok' or 'bound_fail' events in order to proceed further.
@@ -249,6 +249,27 @@
       Returns the application identified by app_id as it was in the normal state.
       This is useful to come back from other states to the maximized state, the
       normal state applications are started.
+      </description>
+      <arg name="app_id" type="string"/>
+    </request>
+
+    <request name="set_app_fullscreen" since="7">
+      <description summary="">
+        Makes the application identified by app_id as fullscreen. If the
+        application's window is already mapped, in a maximized, normal state,
+        it would transition to the fullscreen state.
+
+        For applications that want to modify their own state, this request
+        must be done before the initial surface commit in order to take effect.
+
+        If the application is already in fullscreen state, this request wouldn't
+        do anything.
+
+        There's no persistence of this request, once the application terminated
+        you'll to issue this request again for that particular app_id.
+
+        See xdg_toplevel.set_app_id from the xdg-shell protocol for a
+        description of app_id.
       </description>
       <arg name="app_id" type="string"/>
     </request>

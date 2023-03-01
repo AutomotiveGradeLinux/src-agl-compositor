@@ -44,4 +44,5 @@ public:
 	void SetAppFloat(const std::string &app_id,
 			 int32_t x_pos, int32_t y_pos);
 	void SetAppNormal(const std::string &app_id);
+	void SetAppFullscreen(const std::string &app_id);
 };

@@ -1467,13 +1467,28 @@ shell_set_app_float(struct wl_client *client, struct wl_resource *shell_res,
 		struct weston_view *ev = surf->view;
 		struct weston_desktop_surface *dsurf = surf->dsurface;
 		struct ivi_bounding_box bb = {};
+		const char *prev_activate_app_id = NULL;
 
 		/* XXX: if this is useful we could bring it as active then make
 		 * it float, but avoid doing it for the moment */
 		if (surf != ivi_output->active)
 			return;
 
-		ivi_layout_deactivate(ivi, app_id);
+		if (ivi_output->previous_active)
+			prev_activate_app_id =
+				weston_desktop_surface_get_app_id(ivi_output->previous_active->dsurface);
+
+		/* only deactivate if previous_active is different, otherwise
+		 * this will blow up, because we're trying to activate the same
+		 * app_id as the this one! */
+		if (prev_activate_app_id && strcmp(app_id, prev_activate_app_id)) {
+			ivi_layout_deactivate(ivi, app_id);
+		} else if (prev_activate_app_id) {
+			weston_layer_entry_remove(&ev->layer_link);
+			weston_view_geometry_dirty(ev);
+			weston_surface_damage(ev->surface);
+		}
+
 		surf->hidden_layer_output = ivi_output;
 
 		/* set attributes */
@@ -1504,6 +1519,59 @@ shell_set_app_float(struct wl_client *client, struct wl_resource *shell_res,
 						      0, 0, 0, 0, app_id);
 	}
 }
+
+static void
+shell_set_app_fullscreen(struct wl_client *client,
+			 struct wl_resource *shell_res, const char *app_id)
+{
+	struct ivi_compositor *ivi = wl_resource_get_user_data(shell_res);
+	struct weston_output *output = get_focused_output(ivi->compositor);
+	struct ivi_output *ivi_output;
+	struct ivi_surface *surf = ivi_find_app(ivi, app_id);
+
+	if (!output)
+		output = get_default_output(ivi->compositor);
+
+	ivi_output = to_ivi_output(output);
+
+	if (surf && surf->role == IVI_SURFACE_ROLE_DESKTOP) {
+		struct weston_view *ev = surf->view;
+		struct weston_desktop_surface *dsurf = surf->dsurface;
+
+		if (surf != ivi_output->active)
+			return;
+
+		weston_layer_entry_remove(&surf->view->layer_link);
+		weston_view_geometry_dirty(surf->view);
+		weston_surface_damage(surf->view->surface);
+
+		surf->hidden_layer_output = ivi_output;
+
+		/* set attributes */
+		surf->fullscreen.output = ivi_output;
+
+		/* change the role */
+		surf->role = IVI_SURFACE_ROLE_NONE;
+
+		wl_list_remove(&surf->link);
+		wl_list_init(&surf->link);
+
+		ivi_set_desktop_surface_fullscreen(surf);
+
+		weston_desktop_surface_set_maximized(dsurf, false);
+		weston_desktop_surface_set_fullscreen(dsurf, true);
+		weston_desktop_surface_set_size(dsurf,
+						ivi_output->output->width,
+						ivi_output->output->height);
+
+		/* add to hidden layer */
+		weston_layer_entry_insert(&ivi->hidden.view_list, &ev->layer_link);
+		weston_compositor_schedule_repaint(ivi->compositor);
+	} else if (!surf || (surf && surf->role != IVI_SURFACE_ROLE_FULLSCREEN)) {
+		ivi_set_pending_desktop_surface_fullscreen(ivi_output, app_id);
+	}
+}
+
 
 static void
 shell_set_app_normal(struct wl_client *client, struct wl_resource *shell_res,
@@ -1545,6 +1613,9 @@ shell_set_app_normal(struct wl_client *client, struct wl_resource *shell_res,
 		area = ivi_output->area_activation;
 	else
 		area = ivi_output->area;
+
+	if (weston_desktop_surface_get_fullscreen(dsurf))
+		weston_desktop_surface_set_fullscreen(dsurf, false);
 
 	weston_desktop_surface_set_maximized(dsurf, true);
 	weston_desktop_surface_set_size(dsurf, area.width, area.height);
@@ -1640,6 +1711,7 @@ static const struct agl_shell_interface agl_shell_implementation = {
 	.deactivate_app = shell_new_deactivate_app,
 	.set_app_float = shell_set_app_float,
 	.set_app_normal = shell_set_app_normal,
+	.set_app_fullscreen = shell_set_app_fullscreen,
 };
 
 static const struct agl_shell_ext_interface agl_shell_ext_implementation = {
@@ -1939,7 +2011,7 @@ int
 ivi_shell_create_global(struct ivi_compositor *ivi)
 {
 	ivi->agl_shell = wl_global_create(ivi->compositor->wl_display,
-					  &agl_shell_interface, 6,
+					  &agl_shell_interface, 7,
 					  ivi, bind_agl_shell);
 	if (!ivi->agl_shell) {
 		weston_log("Failed to create wayland global.\n");
