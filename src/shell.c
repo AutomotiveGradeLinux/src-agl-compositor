@@ -1532,6 +1532,7 @@ shell_set_app_normal(struct wl_client *client, struct wl_resource *shell_res,
 
 	/* change the role */
 	surf->role = IVI_SURFACE_ROLE_NONE;
+	surf->state = NORMAL;
 	surf->desktop.pending_output = ivi_output;
 
 	wl_list_remove(&surf->link);
