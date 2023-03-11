@@ -133,21 +133,7 @@ foreach proto: protocols
     endforeach
 endforeach
 
-# libweston pkg-config file already has 'libweston' as prefix but
-# agl-compositor uses 'libweston' also. This makes use of the prefix path as to
-# allow building and installing the compositor locally
 prefix_path = get_option('prefix')
-message('prefix_path ' + prefix_path)
-if not prefix_path.contains('/usr')
-  include_dir_str = join_paths(prefix_path, 'include')
-  if not fs.is_dir(include_dir_str)
-    error('Prefix path does not contain an include directory!')
-  endif
-  local_dep = declare_dependency(include_directories: include_dir_str)
-else
-  local_dep = []
-endif
-
 dir_data = join_paths(prefix_path, get_option('datadir'))
 dir_data_agl_compositor = join_paths('agl-compositor', 'protocols')
 dir_data_pc = join_paths(dir_data, 'pkgconfig')
@@ -157,7 +143,6 @@ deps_libweston = [
   dependency('wayland-server'),
   libweston_dep,
   dependency('libweston-desktop-10'),
-  local_dep,
 ]
 
 
