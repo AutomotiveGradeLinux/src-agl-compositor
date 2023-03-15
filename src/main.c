@@ -24,7 +24,7 @@
  */
 
 #include "config.h"
-#include <weston/weston.h>
+#include <weston.h>
 
 int main(int argc, char *argv[])
 {

@@ -38,7 +38,7 @@
 #include <libweston/libweston.h>
 #include <libweston/config-parser.h>
 
-#include <weston/weston.h>
+#include <weston.h>
 #include "shared/os-compatibility.h"
 #include "shared/helpers.h"
 #include "shared/process-util.h"

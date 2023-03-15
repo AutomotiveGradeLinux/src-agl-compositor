@@ -49,7 +49,7 @@
 #include <libweston/windowed-output-api.h>
 #include <libweston/config-parser.h>
 #include <libweston/weston-log.h>
-#include <weston/weston.h>
+#include <weston.h>
 
 #include "shared/os-compatibility.h"
 #include "shared/helpers.h"

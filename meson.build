@@ -141,6 +141,7 @@ libweston_dep = dependency(libweston_version)
 
 deps_libweston = [
   dependency('wayland-server'),
+  dependency('weston'),
   libweston_dep,
   dependency('libweston-desktop-10'),
 ]
