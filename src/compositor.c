@@ -838,7 +838,7 @@ remote_output_init(struct ivi_output *ivi_output,
 		goto err;
 	}
 
-	if (weston_output_enable(ivi_output->output) < 0) {
+	if ((ret = weston_output_enable(ivi_output->output)) < 0) {
 		weston_log("Enabling remoted output \"%s\" failed.\n",
 				output_name);
 		goto err;
