@@ -92,6 +92,10 @@ public:
 			const ::agl_shell_ipc::FullscreenRequest* request,
 			::agl_shell_ipc::FullscreenResponse* /*response*/) override;
 
+	grpc::ServerUnaryReactor *SetAppOnOutput(grpc::CallbackServerContext *context,
+			const ::agl_shell_ipc::AppOnOutputRequest* request,
+			::agl_shell_ipc::AppOnOutputResponse* /*response*/) override;
+
 	grpc::ServerWriteReactor< ::agl_shell_ipc::AppStateResponse>* AppStatusState(
 	      ::grpc::CallbackServerContext* /*context*/,
 	      const ::agl_shell_ipc::AppStateRequest* /*request*/)  override;

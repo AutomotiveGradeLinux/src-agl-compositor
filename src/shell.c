@@ -1168,6 +1168,22 @@ shell_send_app_state(struct ivi_compositor *ivi, const char *app_id,
 	}
 }
 
+void
+shell_send_app_on_output(struct ivi_compositor *ivi, const char *app_id,
+			 const char *output_name)
+{
+	if (app_id && wl_resource_get_version(ivi->shell_client.resource) >=
+	    AGL_SHELL_APP_ON_OUTPUT_SINCE_VERSION) {
+
+		agl_shell_send_app_on_output(ivi->shell_client.resource,
+					 app_id, output_name);
+
+		if (ivi->shell_client.resource_ext)
+			agl_shell_send_app_on_output(ivi->shell_client.resource_ext,
+						 app_id, output_name);
+	}
+}
+
 static void
 shell_ready(struct wl_client *client, struct wl_resource *shell_res)
 {
@@ -1686,6 +1702,26 @@ shell_set_activate_region(struct wl_client *client, struct wl_resource *res,
 }
 
 static void
+shell_set_app_output(struct wl_client *client, struct wl_resource *res,
+		    const char *app_id, struct wl_resource *output)
+{
+	struct ivi_compositor *ivi = wl_resource_get_user_data(res);
+	struct weston_head *head = weston_head_from_resource(output);
+	struct weston_output *woutput = weston_head_get_output(head);
+	struct ivi_output *ioutput = to_ivi_output(woutput);
+	struct ivi_surface *surf = ivi_find_app(ivi, app_id);
+
+	if (!app_id || !ioutput)
+		return;
+
+	if (!surf || (surf && surf->role != IVI_SURFACE_ROLE_REMOTE)) {
+		ivi_set_pending_desktop_surface_remote(ioutput, app_id);
+		shell_send_app_on_output(ivi, app_id, woutput->name);
+		return;
+	}
+}
+
+static void
 shell_ext_destroy(struct wl_client *client, struct wl_resource *res)
 {
 	wl_resource_destroy(res);
@@ -1712,6 +1748,7 @@ static const struct agl_shell_interface agl_shell_implementation = {
 	.set_app_float = shell_set_app_float,
 	.set_app_normal = shell_set_app_normal,
 	.set_app_fullscreen = shell_set_app_fullscreen,
+	.set_app_output = shell_set_app_output,
 };
 
 static const struct agl_shell_ext_interface agl_shell_ext_implementation = {
@@ -2011,7 +2048,7 @@ int
 ivi_shell_create_global(struct ivi_compositor *ivi)
 {
 	ivi->agl_shell = wl_global_create(ivi->compositor->wl_display,
-					  &agl_shell_interface, 7,
+					  &agl_shell_interface, 8,
 					  ivi, bind_agl_shell);
 	if (!ivi->agl_shell) {
 		weston_log("Failed to create wayland global.\n");

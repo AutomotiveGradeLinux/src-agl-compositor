@@ -120,16 +120,31 @@ agl_shell_app_state(void *data, struct agl_shell *agl_shell,
 	}
 }
 
+static void
+agl_shell_app_on_output(void *data, struct agl_shell *agl_shell,
+		const char *app_id, const char *output_name)
+{
+	(void) agl_shell;
+	(void) output_name;
+	(void) data;
+	(void) app_id;
+
+	LOG("got app_on_output event app_id %s on output\n", app_id, output_name);
+}
+
+
 static const struct agl_shell_listener shell_listener = {
-        agl_shell_bound_ok,
-        agl_shell_bound_fail,
-        agl_shell_app_state,
+	agl_shell_bound_ok,
+	agl_shell_bound_fail,
+	agl_shell_app_state,
+	agl_shell_app_on_output,
 };
 
 static const struct agl_shell_listener shell_listener_init = {
-        agl_shell_bound_ok_init,
-        agl_shell_bound_fail_init,
-        nullptr,
+	agl_shell_bound_ok_init,
+	agl_shell_bound_fail_init,
+	nullptr,
+	nullptr,
 };
 
 static void
@@ -260,7 +275,7 @@ global_add(void *data, struct wl_registry *reg, uint32_t id,
 		sh->shell =
 			static_cast<struct agl_shell *>(wl_registry_bind(reg, id,
 				&agl_shell_interface,
-				std::min(static_cast<uint32_t>(7), version)));
+				std::min(static_cast<uint32_t>(8), version)));
 		agl_shell_add_listener(sh->shell, &shell_listener, data);
 		sh->version = version;
 	} else if (strcmp(interface, "wl_output") == 0) {
@@ -284,7 +299,7 @@ global_add_init(void *data, struct wl_registry *reg, uint32_t id,
 		sh->shell =
 			static_cast<struct agl_shell *>(wl_registry_bind(reg, id,
 				&agl_shell_interface,
-				std::min(static_cast<uint32_t>(7), version)));
+				std::min(static_cast<uint32_t>(8), version)));
 		agl_shell_add_listener(sh->shell, &shell_listener_init, data);
 		sh->version = version;
 	}

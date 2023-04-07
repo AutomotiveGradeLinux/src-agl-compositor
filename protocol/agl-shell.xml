@@ -22,7 +22,7 @@
     FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
     DEALINGS IN THE SOFTWARE.
   </copyright>
-  <interface name="agl_shell" version="7">
+  <interface name="agl_shell" version="8">
     <description summary="user interface for Automotive Grade Linux platform">
       Starting with version 2 of the protocol, the client is required to wait
       for the 'bound_ok' or 'bound_fail' events in order to proceed further.
@@ -273,6 +273,37 @@
       </description>
       <arg name="app_id" type="string"/>
     </request>
+
+    <request name="set_app_output" since="8">
+      <description summary="Assign an application to a particular output">
+        This would allow the compositor to place an application on a particular
+        output, if that output is indeed available. This can happen before
+        application is started which would make the application start on that
+        particular output. If the application is already started it would
+        move the application to that output.
+
+        There's no persistence of this request, once the application terminated
+        you'll need to issue this request again for that particular app_id.
+
+        See xdg_toplevel.set_app_id from the xdg-shell protocol for a
+        description of app_id.
+      </description>
+      <arg name="app_id" type="string"/>
+      <arg name="output" type="object" interface="wl_output"/>
+    </request>
+
+    <event name="app_on_output" since="8">
+      <description summary="Event sent as a reponse to set_app_output">
+        Clients can use this event to be notified when an application
+        wants to be displayed on a certain output. This event is sent in
+        response to the set_app_output request.
+
+        See xdg_toplevel.set_app_id from the xdg-shell protocol for a
+        description of app_id.
+      </description>
+      <arg name="app_id" type="string"/>
+      <arg name="output_name" type="string"/>
+    </event>
   </interface>
 
   <interface name="agl_shell_ext" version="1">

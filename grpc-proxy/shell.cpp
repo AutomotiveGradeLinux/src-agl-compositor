@@ -31,6 +31,7 @@
 #include <queue>
 
 #include "main-grpc.h"
+#include "log.h"
 #include "shell.h"
 
 void
@@ -91,6 +92,31 @@ Shell::SetAppFullscreen(const std::string &app_id)
 	struct agl_shell *shell = this->m_shell.get();
 
 	agl_shell_set_app_fullscreen(shell, app_id.c_str());
+	wl_display_flush(m_shell_data->wl_display);
+}
+
+void
+Shell::SetAppOnOutput(const std::string &app_id, const std::string &output)
+{
+	struct window_output *woutput, *w_output;
+	struct agl_shell *shell = this->m_shell.get();
+
+	woutput = nullptr;
+	w_output = nullptr;
+
+	wl_list_for_each(woutput, &m_shell_data->output_list, link) {
+		if (woutput->name && !strcmp(woutput->name, output.c_str())) {
+			w_output = woutput;
+			break;
+		}
+	}
+
+	if (!w_output) {
+		LOG("Could not found output '%s' to set the application\n");
+		return;
+	}
+
+	agl_shell_set_app_output(shell, app_id.c_str(), w_output->output);
 	wl_display_flush(m_shell_data->wl_display);
 }
 

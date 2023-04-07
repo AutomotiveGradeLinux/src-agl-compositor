@@ -45,4 +45,5 @@ public:
 			 int32_t x_pos, int32_t y_pos);
 	void SetAppNormal(const std::string &app_id);
 	void SetAppFullscreen(const std::string &app_id);
+	void SetAppOnOutput(const std::string &app_id, const std::string &output);
 };
