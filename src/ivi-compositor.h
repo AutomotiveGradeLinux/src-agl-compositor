@@ -416,6 +416,8 @@ ivi_layout_activate_by_surf(struct ivi_output *output, struct ivi_surface *surf)
 
 void
 ivi_layout_desktop_committed(struct ivi_surface *surf);
+void
+ivi_layout_remote_committed(struct ivi_surface *surf);
 
 void
 ivi_layout_popup_committed(struct ivi_surface *surface);

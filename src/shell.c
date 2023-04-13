@@ -706,7 +706,7 @@ ivi_check_pending_desktop_surface(struct ivi_surface *surface)
 	ret = ivi_check_pending_desktop_surface_remote(surface);
 	if (ret) {
 		ivi_set_desktop_surface_remote(surface);
-		ivi_layout_desktop_committed(surface);
+		ivi_layout_remote_committed(surface);
 		return;
 	}
 

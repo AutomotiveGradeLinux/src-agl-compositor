@@ -49,6 +49,9 @@ static const char *ivi_roles_as_string[] = {
 	[IVI_SURFACE_ROLE_REMOTE]	= "REMOTE",
 };
 
+bool
+ivi_surf_in_hidden_layer(struct ivi_compositor *ivi, struct ivi_surface *surface);
+
 const char *
 ivi_layout_get_surface_role_name(struct ivi_surface *surf)
 {
@@ -452,6 +455,53 @@ ivi_layout_add_to_hidden_layer(struct ivi_surface *surf,
 }
 
 void
+ivi_layout_remote_committed(struct ivi_surface *surf)
+{
+	struct weston_desktop_surface *dsurf = surf->dsurface;
+	struct weston_geometry geom = weston_desktop_surface_get_geometry(dsurf);
+	struct ivi_policy *policy = surf->ivi->policy;
+	struct ivi_output *output;
+	const char *app_id = weston_desktop_surface_get_app_id(dsurf);
+
+	assert(surf->role == IVI_SURFACE_ROLE_REMOTE);
+
+	output = surf->remote.output;
+
+	if (policy && policy->api.surface_activate_by_default &&
+	    !policy->api.surface_activate_by_default(surf, surf->ivi))
+		return;
+
+	/* we can only activate it again by using the protocol, but
+	 * additionally the output is not reset when
+	 * ivi_layout_activate_complete() terminates so we use the
+	 * current active surface to avoid hitting this again and again
+	 * */
+	if (surf->mapped && output->active == surf)
+		return;
+
+	if (!surf->ivi->activate_by_default &&
+	    !ivi_surf_in_hidden_layer(surf->ivi, surf)) {
+		weston_log("Refusing to activate surface role %d, "
+			    "app_id %s\n", surf->role, app_id);
+
+		if (!weston_desktop_surface_get_maximized(dsurf) ||
+		    geom.width != output->area.width ||
+		    geom.height != output->area.height) {
+			ivi_layout_add_to_hidden_layer(surf, output);
+		}
+
+		return;
+	}
+
+	if (!weston_desktop_surface_get_maximized(dsurf) ||
+	    geom.width != output->area.width ||
+	    geom.height != output->area.height)
+		return;
+
+	ivi_layout_activate_complete(output, surf);
+}
+
+void
 ivi_layout_desktop_committed(struct ivi_surface *surf)
 {
 	struct weston_desktop_surface *dsurf = surf->dsurface;
@@ -460,8 +510,7 @@ ivi_layout_desktop_committed(struct ivi_surface *surf)
 	struct ivi_output *output;
 	const char *app_id = weston_desktop_surface_get_app_id(dsurf);
 
-	assert(surf->role == IVI_SURFACE_ROLE_DESKTOP ||
-	       surf->role == IVI_SURFACE_ROLE_REMOTE);
+	assert(surf->role == IVI_SURFACE_ROLE_DESKTOP);
 
 	/*
 	 * we can't make use here of the ivi_layout_get_output_from_surface()
@@ -470,12 +519,9 @@ ivi_layout_desktop_committed(struct ivi_surface *surf)
 	 * with 'mapped' at this point to avoid tripping over
 	 * to a surface that continuously updates its content
 	 */
-	if (surf->role == IVI_SURFACE_ROLE_DESKTOP)
-		output = surf->desktop.pending_output;
-	else
-		output = surf->remote.output;
+	output = surf->desktop.pending_output;
 
-	if (surf->role == IVI_SURFACE_ROLE_DESKTOP && !output) {
+	if (!output) {
 		struct ivi_output *r_output;
 
 		if (policy && policy->api.surface_activate_by_default &&
@@ -543,30 +589,6 @@ ivi_layout_desktop_committed(struct ivi_surface *surf)
 			}
 		}
 
-		return;
-	}
-
-	if (surf->role == IVI_SURFACE_ROLE_REMOTE && output) {
-		if (policy && policy->api.surface_activate_by_default &&
-		    !policy->api.surface_activate_by_default(surf, surf->ivi))
-			return;
-
-		/* we can only activate it again by using the protocol, but
-		 * additionally the output is not reset when
-		 * ivi_layout_activate_complete() terminates so we use the
-		 * current active surface to avoid hitting this again and again
-		 * */
-		if (surf->mapped && output->active == surf)
-			return;
-
-		if (app_id) {
-			weston_log("Surface with app_id %s, role %s activating "
-				   "by default on output %s\n",
-				   weston_desktop_surface_get_app_id(surf->dsurface),
-				   ivi_layout_get_surface_role_name(surf),
-				   output->output->name);
-			ivi_layout_activate(output, app_id);
-		}
 		return;
 	}
 
@@ -807,7 +829,7 @@ ivi_compute_popup_position(const struct weston_output *output, struct weston_vie
 }
 
 
-static bool
+bool
 ivi_surf_in_hidden_layer(struct ivi_compositor *ivi, struct ivi_surface *surface)
 {
 	struct weston_view *ev;
