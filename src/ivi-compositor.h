@@ -515,4 +515,8 @@ get_default_output(struct weston_compositor *compositor);
 struct weston_output *
 get_focused_output(struct weston_compositor *compositor);
 
+void
+shell_send_app_on_output(struct ivi_compositor *ivi, const char *app_id,
+			 const char *output_name);
+
 #endif

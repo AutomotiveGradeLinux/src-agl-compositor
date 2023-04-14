@@ -1172,7 +1172,8 @@ void
 shell_send_app_on_output(struct ivi_compositor *ivi, const char *app_id,
 			 const char *output_name)
 {
-	if (app_id && wl_resource_get_version(ivi->shell_client.resource) >=
+	if (app_id && ivi->shell_client.resource &&
+	    wl_resource_get_version(ivi->shell_client.resource) >=
 	    AGL_SHELL_APP_ON_OUTPUT_SINCE_VERSION) {
 
 		agl_shell_send_app_on_output(ivi->shell_client.resource,
