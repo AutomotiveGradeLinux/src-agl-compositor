@@ -1116,7 +1116,8 @@ ivi_layout_deactivate(struct ivi_compositor *ivi, const char *app_id)
 	weston_log("Deactiving %s, role %s\n", app_id,
 			ivi_layout_get_surface_role_name(surf));
 
-	if (surf->role == IVI_SURFACE_ROLE_DESKTOP) {
+	if (surf->role == IVI_SURFACE_ROLE_DESKTOP ||
+	    surf->role == IVI_SURFACE_ROLE_REMOTE) {
 		struct ivi_surface *previous_active;
 
 		previous_active = ivi_output->previous_active;

@@ -243,8 +243,9 @@ desktop_surface_added(struct weston_desktop_surface *dsurface, void *userdata)
 
 }
 
-static bool
-desktop_surface_check_last_surfaces(struct ivi_output *ivi_output, enum ivi_surface_role role)
+bool
+ivi_surface_count_one(struct ivi_output *ivi_output,
+		      enum ivi_surface_role role)
 {
 	int count = 0;
 	struct ivi_surface *surf;
@@ -331,8 +332,8 @@ desktop_surface_removed(struct weston_desktop_surface *dsurface, void *userdata)
 	/* check if there's a last 'remote' surface and insert a black
 	 * surface view if there's no background set for that output
 	 */
-	if (desktop_surface_check_last_surfaces(output, IVI_SURFACE_ROLE_REMOTE) ||
-	    desktop_surface_check_last_surfaces(output, IVI_SURFACE_ROLE_DESKTOP))
+	if (ivi_surface_count_one(output, IVI_SURFACE_ROLE_REMOTE) ||
+	    ivi_surface_count_one(output, IVI_SURFACE_ROLE_DESKTOP))
 		if (!output->background)
 			insert_black_curtain(output);
 

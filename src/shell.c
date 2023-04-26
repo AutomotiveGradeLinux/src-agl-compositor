@@ -1711,15 +1711,46 @@ shell_set_app_output(struct wl_client *client, struct wl_resource *res,
 	struct weston_output *woutput = weston_head_get_output(head);
 	struct ivi_output *ioutput = to_ivi_output(woutput);
 	struct ivi_surface *surf = ivi_find_app(ivi, app_id);
+	struct ivi_output *desktop_last_output = surf->desktop.last_output;
+	struct ivi_output *current_completed_output =
+		surf->current_completed_output;
 
 	if (!app_id || !ioutput)
 		return;
 
-	if (!surf || (surf && surf->role != IVI_SURFACE_ROLE_REMOTE)) {
+	/* handle the case we're not mapped at all */
+	if (!surf) {
 		ivi_set_pending_desktop_surface_remote(ioutput, app_id);
 		shell_send_app_on_output(ivi, app_id, woutput->name);
 		return;
 	}
+
+	if (surf->remote.output)
+		surf->hidden_layer_output = surf->remote.output;
+	else
+		surf->hidden_layer_output = desktop_last_output;
+	assert(surf->hidden_layer_output);
+
+	if (ivi_surface_count_one(current_completed_output, IVI_SURFACE_ROLE_REMOTE) ||
+	    ivi_surface_count_one(current_completed_output, IVI_SURFACE_ROLE_DESKTOP)) {
+		if (!current_completed_output->background)
+			insert_black_curtain(current_completed_output);
+	} else {
+		ivi_layout_deactivate(ivi, app_id);
+	}
+
+	/* update the remote output */
+	surf->remote.output = ioutput;
+
+	if (surf->role != IVI_SURFACE_ROLE_REMOTE) {
+		wl_list_remove(&surf->link);
+		wl_list_init(&surf->link);
+
+		surf->role = IVI_SURFACE_ROLE_NONE;
+		ivi_set_desktop_surface_remote(surf);
+	}
+
+	shell_send_app_on_output(ivi, app_id, woutput->name);
 }
 
 static void
