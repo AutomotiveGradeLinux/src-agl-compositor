@@ -409,8 +409,10 @@ ivi_layout_add_to_hidden_layer(struct ivi_surface *surf,
 	if (surf->hidden_layer_output &&
 	    surf->hidden_layer_output != ivi_output) {
 		weston_layer_entry_remove(&ev->layer_link);
+		weston_view_geometry_dirty(ev);
+		weston_surface_damage(ev->surface);
 
-		if (ivi_output->area.width != surf->hidden_layer_output->area.width &&
+		if (ivi_output->area.width != surf->hidden_layer_output->area.width ||
 		    ivi_output->area.height != surf->hidden_layer_output->area.height) {
 			weston_desktop_surface_set_maximized(dsurf, true);
 			weston_desktop_surface_set_size(dsurf,
