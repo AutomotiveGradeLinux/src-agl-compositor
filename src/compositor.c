@@ -1741,6 +1741,36 @@ wet_load_xwayland(struct weston_compositor *comp)
 }
 #endif
 
+static void
+weston_log_setup_scopes(struct weston_log_context *log_ctx,
+			struct weston_log_subscriber *subscriber,
+			const char *names)
+{
+	assert(log_ctx);
+	assert(subscriber);
+
+	char *tokenize = strdup(names);
+	char *token = strtok(tokenize, ",");
+	while (token) {
+		weston_log_subscribe(log_ctx, subscriber, token);
+		token = strtok(NULL, ",");
+	}
+	free(tokenize);
+}
+
+static void
+weston_log_subscribe_to_scopes(struct weston_log_context *log_ctx,
+                               struct weston_log_subscriber *logger,
+                               const char *debug_scopes)
+{
+        if (logger && debug_scopes)
+                weston_log_setup_scopes(log_ctx, logger, debug_scopes);
+        else
+                weston_log_subscribe(log_ctx, logger, "log");
+}
+
+>>>>>>> cea026b (compositor: Add support for subscribing to libweston scopes)
+
 WL_EXPORT
 int wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_data)
 {
@@ -1756,6 +1786,7 @@ int wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_da
 	char *log = NULL;
 	char *modules = NULL;
 	char *option_modules = NULL;
+	char *debug_scopes = NULL;
 	int help = 0;
 	int version = 0;
 	int no_config = 0;
@@ -1777,6 +1808,7 @@ int wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_da
 		{ WESTON_OPTION_BOOLEAN, "debug", 0, &debug },
 		{ WESTON_OPTION_STRING, "config", 'c', &config_file },
 		{ WESTON_OPTION_STRING, "modules", 0, &option_modules },
+		{ WESTON_OPTION_STRING, "debug-scopes", 'l', &debug_scopes },
 	};
 
 	wl_list_init(&ivi.outputs);
@@ -1819,7 +1851,7 @@ int wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_da
 	weston_log_set_handler(vlog, vlog_continue);
 
 	logger = weston_log_subscriber_create_log(logfile);
-	weston_log_subscribe(log_ctx, logger, "log");
+	weston_log_subscribe_to_scopes(log_ctx, logger, debug_scopes);
 
 	weston_log("Command line: %s\n", cmdline);
 	free(cmdline);
