@@ -1791,6 +1791,7 @@ int wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_da
 	int version = 0;
 	int no_config = 0;
 	int debug = 0;
+	bool list_debug_scopes = false;
 	char *config_file = NULL;
 	struct weston_log_context *log_ctx = NULL;
 	struct weston_log_subscriber *logger;
@@ -1809,6 +1810,7 @@ int wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_da
 		{ WESTON_OPTION_STRING, "config", 'c', &config_file },
 		{ WESTON_OPTION_STRING, "modules", 0, &option_modules },
 		{ WESTON_OPTION_STRING, "debug-scopes", 'l', &debug_scopes },
+		{ WESTON_OPTION_STRING, "list-debug-scopes", 'L', &list_debug_scopes },
 	};
 
 	wl_list_init(&ivi.outputs);
@@ -1946,6 +1948,22 @@ int wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_da
 
 	if (ivi_shell_init(&ivi) < 0)
 		goto error_compositor;
+
+	if (list_debug_scopes) {
+		struct weston_log_scope *nscope = NULL;
+
+		weston_log("Printing available debug scopes:\n");
+
+		while ((nscope = weston_log_scopes_iterate(ivi.compositor, nscope))) {
+			weston_log("\tscope name: %s, desc: %s",
+					weston_log_scope_get_name(nscope),
+					weston_log_scope_get_description(nscope));
+		}
+
+		weston_log("\n");
+
+		goto error_compositor;
+	}
 
 	add_bindings(ivi.compositor);
 
