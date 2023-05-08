@@ -19,3 +19,17 @@ option(
         value: false,
         description: 'Build compositor with Waltham support. Disabled by default'
 )
+
+option(
+    'xwayland',
+    type: 'boolean',
+    value: false,
+    description: 'Build compositor with XWayland support. Disabled by default'
+)
+
+option(
+        'xwayland-path',
+        type: 'string',
+        value: '/usr/bin/Xwayland',
+        description: 'Xwayland: path to installed Xwayland binary'
+)

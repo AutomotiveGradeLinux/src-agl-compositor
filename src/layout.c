@@ -587,7 +587,12 @@ ivi_layout_desktop_committed(struct ivi_surface *surf)
 				 */
 				weston_log("Surface no app_id, role %s activating by default\n",
 					ivi_layout_get_surface_role_name(surf));
-				ivi_layout_activate_by_surf(r_output, surf);
+				if (surf->xwayland.is_set) {
+					ivi_layout_activate_by_surf(r_output, surf);
+					ivi_layout_activate_complete(r_output, surf);
+				} else {
+					ivi_layout_activate_by_surf(r_output, surf);
+				}
 			}
 		}
 
