@@ -205,6 +205,13 @@ if deps_remoting.length() == depnames.length()
   message('Found remoting depends, enabling remoting')
 endif
 
+if get_option('xwayland')
+        config_h.set('BUILD_XWAYLAND', '1')
+
+        srcs_agl_compositor += 'src/xwayland.c'
+        config_h.set_quoted('XSERVER_PATH', get_option('xwayland-path'))
+endif
+
 dir_module_agl_compositor = join_paths(join_paths(prefix_path, get_option('libdir')), 'agl-compositor')
 
 libexec_compositor = shared_library(

@@ -581,7 +581,7 @@ ivi_layout_desktop_committed(struct ivi_surface *surf)
 			return;
 		}
 
-		if (!surf->ivi->activate_by_default) {
+		if (!surf->ivi->activate_by_default && !surf->xwayland.is_set) {
 			weston_log("Refusing to activate surface role %d, app_id %s\n",
 					surf->role, app_id);
 
@@ -611,7 +611,12 @@ ivi_layout_desktop_committed(struct ivi_surface *surf)
 				 */
 				weston_log("Surface no app_id, role %s activating by default\n",
 					ivi_layout_get_surface_role_name(surf));
-				ivi_layout_activate_by_surf(r_output, surf);
+				if (surf->xwayland.is_set) {
+					ivi_layout_activate_by_surf(r_output, surf);
+					ivi_layout_activate_complete(r_output, surf);
+				} else {
+					ivi_layout_activate_by_surf(r_output, surf);
+				}
 			}
 		}
 

@@ -117,6 +117,8 @@ struct ivi_compositor {
 	struct wl_list remote_pending_apps;
 
 	struct wl_listener destroy_listener;
+	struct wl_listener transform_listener;
+	const struct weston_xwayland_surface_api *xwayland_surface_api;
 
 	struct weston_layer hidden;
 	struct weston_layer background;
@@ -304,6 +306,12 @@ struct ivi_surface {
 
 	struct wl_listener listener_advertise_app;
 	struct wl_signal signal_advertise_app;
+
+	struct {
+		bool is_set;
+		int32_t x;
+		int32_t y;
+	} xwayland;
 };
 
 struct ivi_shell_seat {

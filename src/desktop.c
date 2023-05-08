@@ -30,6 +30,7 @@
 #include "shared/helpers.h"
 #include <libweston/libweston.h>
 #include <libweston-desktop/libweston-desktop.h>
+#include <libweston/xwayland-api.h>
 
 #include "agl-shell-desktop-server-protocol.h"
 
@@ -512,7 +513,12 @@ static void
 desktop_set_xwayland_position(struct weston_desktop_surface *dsurface,
 			      int32_t x, int32_t y, void *userdata)
 {
-	/* not supported */
+	struct ivi_surface *ivisurf =
+		weston_desktop_surface_get_user_data(dsurface);
+
+	ivisurf->xwayland.x = x;
+	ivisurf->xwayland.y = y;
+	ivisurf->xwayland.is_set = true;
 }
 
 static const struct weston_desktop_api desktop_api = {
@@ -543,7 +549,37 @@ ivi_shell_destroy(struct wl_listener *listener, void *data)
 	ivi_layout_destroy_saved_outputs(ivi);
 
 	weston_desktop_destroy(ivi->desktop);
+	wl_list_remove(&ivi->transform_listener.link);
 	wl_list_remove(&listener->link);
+}
+
+static void
+transform_handler(struct wl_listener *listener, void *data)
+{
+	struct weston_surface *surface = data;
+	struct ivi_surface *ivisurf = get_ivi_shell_surface(surface);
+	const struct weston_xwayland_surface_api *api;
+	int x, y;
+
+	if (!ivisurf)
+		return;
+
+	api = ivisurf->ivi->xwayland_surface_api;
+	if (!api) {
+		api = weston_xwayland_surface_get_api(ivisurf->ivi->compositor);
+		ivisurf->ivi->xwayland_surface_api = api;
+	}
+
+	if (!api || !api->is_xwayland_surface(surface))
+		return;
+
+	if (!weston_view_is_mapped(ivisurf->view))
+		return;
+
+	x = ivisurf->view->geometry.x;
+	y = ivisurf->view->geometry.y;
+
+	api->send_position(surface, x, y);
 }
 
 int
@@ -559,6 +595,11 @@ ivi_desktop_init(struct ivi_compositor *ivi)
 			&ivi->destroy_listener, ivi_shell_destroy)) {
 		return -1;
 	}
+
+	ivi->transform_listener.notify = transform_handler;
+	wl_signal_add(&ivi->compositor->transform_signal,
+		      &ivi->transform_listener);
+
 
 	return 0;
 }

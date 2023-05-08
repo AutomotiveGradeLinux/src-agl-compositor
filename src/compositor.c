@@ -1234,27 +1234,18 @@ load_modules(struct ivi_compositor *ivi, const char *modules,
 		snprintf(buffer, sizeof buffer, "%.*s", (int) (end - p), p);
 
 		if (strstr(buffer, "xwayland.so")) {
-			weston_log("Xwayland plug-in not supported!\n");
-			p = end;
-			while (*p == ',')
-				p++;
-			continue;
-		}
-
-		if (strstr(buffer, "systemd-notify.so")) {
+			*xwayland = true;
+		} else if (strstr(buffer, "systemd-notify.so")) {
 			weston_log("systemd-notify plug-in already loaded!\n");
-			p = end;
-			while (*p == ',')
-				p++;
-			continue;
+		} else {
+			module_init = weston_load_module(buffer, "wet_module_init");
+			if (!module_init)
+				return -1;
+
+			if (module_init(ivi->compositor, *argc, argv) < 0)
+				return -1;
+
 		}
-
-		module_init = weston_load_module(buffer, "wet_module_init");
-		if (!module_init)
-			return -1;
-
-		if (module_init(ivi->compositor, *argc, argv) < 0)
-			return -1;
 
 		p = end;
 		while (*p == ',')
@@ -1649,6 +1640,16 @@ copy_command_line(int argc, char * const argv[])
 	return str;
 }
 
+#if !defined(BUILD_XWAYLAND)
+int
+wet_load_xwayland(struct weston_compositor *comp)
+{
+	weston_log("Attempted to load xwayland library but compositor "
+		   "was *not* built with xwayland support!\n");
+	return -1;
+}
+#endif
+
 static void
 weston_log_setup_scopes(struct weston_log_context *log_ctx,
 			struct weston_log_subscriber *subscriber,
@@ -1676,7 +1677,6 @@ weston_log_subscribe_to_scopes(struct weston_log_context *log_ctx,
         else
                 weston_log_subscribe(log_ctx, logger, "log");
 }
-
 
 WL_EXPORT
 int wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_data)
@@ -1840,11 +1840,22 @@ int wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_da
 	if (load_modules(&ivi, option_modules, &argc, argv, &xwayland) < 0)
 		goto error_compositor;
 
-	if (ivi_policy_init(&ivi) < 0)
-		goto error_compositor;
+	if (!xwayland) {
+		weston_config_section_get_bool(section, "xwayland", &xwayland,
+					       false);
+	}
 
 	if (ivi_shell_init(&ivi) < 0)
 		goto error_compositor;
+
+	if (xwayland) {
+		if (wet_load_xwayland(ivi.compositor) < 0)
+			goto error_compositor;
+	}
+
+	if (ivi_policy_init(&ivi) < 0)
+		goto error_compositor;
+
 
 	if (list_debug_scopes) {
 		struct weston_log_scope *nscope = NULL;
