@@ -411,6 +411,7 @@ ivi_layout_add_to_hidden_layer(struct ivi_surface *surf,
 						ivi_output->area.width,
 						ivi_output->area.height);
 
+		weston_log("Surface is not mapped at all\n");
 		weston_log("Setting app_id %s, role %s, set to maximized (%dx%d)\n",
 			   app_id, ivi_layout_get_surface_role_name(surf),
 			   ivi_output->area.width, ivi_output->area.height);
@@ -418,6 +419,9 @@ ivi_layout_add_to_hidden_layer(struct ivi_surface *surf,
 		surf->hidden_layer_output = ivi_output;
 		weston_view_set_output(ev, ivi_output->output);
 		weston_layer_entry_insert(&ivi->hidden.view_list, &ev->layer_link);
+		weston_view_geometry_dirty(ev);
+		weston_surface_damage(ev->surface);
+
 		weston_log("Placed app_id %s, type %s in hidden layer on output %s\n",
 				app_id, ivi_layout_get_surface_role_name(surf),
 				ivi_output->output->name);

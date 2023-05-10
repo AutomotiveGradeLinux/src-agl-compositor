@@ -1769,8 +1769,6 @@ weston_log_subscribe_to_scopes(struct weston_log_context *log_ctx,
                 weston_log_subscribe(log_ctx, logger, "log");
 }
 
->>>>>>> cea026b (compositor: Add support for subscribing to libweston scopes)
-
 WL_EXPORT
 int wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_data)
 {
