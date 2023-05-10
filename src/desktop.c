@@ -400,11 +400,8 @@ desktop_committed(struct weston_desktop_surface *dsurface,
 		wl_list_remove(&surface->link);
 		wl_list_init(&surface->link);
 
-		if ((remote_output = ivi_layout_find_with_app_id(app_id, ivi))) {
+		if ((remote_output = ivi_layout_find_with_app_id(app_id, ivi)))
 			ivi_set_pending_desktop_surface_remote(remote_output, app_id);
-			shell_send_app_on_output(ivi, app_id, remote_output->output->name);
-		}
-
 
 		ivi_check_pending_desktop_surface(surface);
 		surface->checked_pending = true;
