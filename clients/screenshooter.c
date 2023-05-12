@@ -40,6 +40,7 @@
 #include "shared/helpers.h"
 #include "shared/xalloc.h"
 #include "shared/file-util.h"
+#include "shared/string-helpers.h"
 #include "shared/os-compatibility.h"
 #include "agl-screenshooter-client-protocol.h"
 #include "xdg-output-unstable-v1-client-protocol.h"
@@ -309,13 +310,15 @@ screenshot_create_shm_buffer(int width, int height, void **data_out,
 
 static void
 screenshot_write_png_per_output(const struct buffer_size *buff_size,
-				struct screenshooter_output *sh_output)
+				struct screenshooter_output *sh_output,
+				const char *fn)
 {
 	int output_stride, buffer_stride, i;
 	cairo_surface_t *surface;
 	void *data, *d, *s;
 	FILE *fp;
 	char filepath[PATH_MAX];
+	char *filename_to_write;
 
 	buffer_stride = buff_size->width * 4;
 	data = xmalloc(buffer_stride * buff_size->height);
@@ -339,7 +342,12 @@ screenshot_write_png_per_output(const struct buffer_size *buff_size,
 						      buff_size->height,
 						      buffer_stride);
 
-	fp = file_create_dated(getenv("XDG_PICTURES_DIR"), "agl-screenshot-",
+	if (fn)
+		str_printf(&filename_to_write, "agl-screenshot-%s-", fn);
+	else
+		str_printf(&filename_to_write, "agl-screenshot-");
+
+	fp = file_create_dated(getenv("XDG_PICTURES_DIR"), filename_to_write,
 			       ".png", filepath, sizeof(filepath));
 	if (fp) {
 		fclose(fp);
@@ -347,55 +355,7 @@ screenshot_write_png_per_output(const struct buffer_size *buff_size,
 	}
 
 	cairo_surface_destroy(surface);
-	free(data);
-}
-
-static void
-screenshot_write_png(const struct buffer_size *buff_size,
-		     struct wl_list *output_list)
-{
-	int output_stride, buffer_stride, i;
-	cairo_surface_t *surface;
-	void *data, *d, *s;
-	struct screenshooter_output *output, *next;
-	FILE *fp;
-	char filepath[PATH_MAX];
-
-	buffer_stride = buff_size->width * 4;
-
-	data = xmalloc(buffer_stride * buff_size->height);
-	if (!data)
-		return;
-
-	wl_list_for_each_safe(output, next, output_list, link) {
-		output_stride = output->width * 4;
-		s = output->data;
-		d = data + (output->offset_y - buff_size->min_y) * buffer_stride +
-			   (output->offset_x - buff_size->min_x) * 4;
-
-		for (i = 0; i < output->height; i++) {
-			memcpy(d, s, output_stride);
-			d += buffer_stride;
-			s += output_stride;
-		}
-
-		free(output);
-	}
-
-	surface = cairo_image_surface_create_for_data(data,
-						      CAIRO_FORMAT_ARGB32,
-						      buff_size->width,
-						      buff_size->height,
-						      buffer_stride);
-
-	fp = file_create_dated(getenv("XDG_PICTURES_DIR"), "agl-screenshot-",
-			       ".png", filepath, sizeof(filepath));
-	if (fp) {
-		fclose(fp);
-		cairo_surface_write_to_png(surface, filepath);
-	}
-
-	cairo_surface_destroy(surface);
+	free(filename_to_write);
 	free(data);
 }
 
@@ -419,31 +379,6 @@ screenshot_compute_output_offset(int *pos, struct screenshooter_output *sh_outpu
 	*pos += sh_output->width;
 }
 
-static int
-screenshot_set_buffer_size(struct buffer_size *buff_size, struct wl_list *output_list)
-{
-	struct screenshooter_output *output;
-	int pos = 0;
-
-	buff_size->min_x = buff_size->min_y = INT_MAX;
-	buff_size->max_x = buff_size->max_y = INT_MIN;
-
-	wl_list_for_each_reverse(output, output_list, link)
-		screenshot_compute_output_offset(&pos, output);
-
-	wl_list_for_each(output, output_list, link)
-		screenshot_set_buffer_size_per_output(buff_size, output);
-
-	if (buff_size->max_x <= buff_size->min_x ||
-	    buff_size->max_y <= buff_size->min_y)
-		return -1;
-
-	buff_size->width = buff_size->max_x - buff_size->min_x;
-	buff_size->height = buff_size->max_y - buff_size->min_y;
-
-	return 0;
-}
-
 static struct screenshooter_output *
 agl_shooter_search_for_output(const char *output_name,
 			      struct screenshooter_data *sh_data)
@@ -464,6 +399,26 @@ agl_shooter_search_for_output(const char *output_name,
 	return found_output;
 }
 
+static char *
+agl_shooter_search_get_output_name(struct screenshooter_output *sh_output)
+{
+	struct xdg_output_v1_info *output;
+	struct screenshooter_data *sh_data;
+
+	if (!sh_output)
+		return NULL;
+
+	sh_data = sh_output->sh_data;
+
+	wl_list_for_each(output, &sh_data->xdg_output_list, link) {
+		if (output->output == sh_output) {
+			return output->name;
+		}
+	}
+
+	return NULL;
+}
+
 static void
 agl_shooter_display_all_outputs(struct screenshooter_data *sh_data)
 {
@@ -478,13 +433,16 @@ agl_shooter_display_all_outputs(struct screenshooter_data *sh_data)
 static void
 agl_shooter_screenshot_all_outputs(struct screenshooter_data *sh_data)
 {
-	struct screenshooter_output *output;
-	struct buffer_size buff_size = {};
+	struct xdg_output_v1_info *xdg_output;
 
-	if (screenshot_set_buffer_size(&buff_size, &sh_data->output_list))
-		return;
+	wl_list_for_each(xdg_output, &sh_data->xdg_output_list, link) {
+		struct buffer_size buff_size = {};
+		int pos = 0;
+		struct screenshooter_output *output = xdg_output->output;
 
-	wl_list_for_each(output, &sh_data->output_list, link) {
+		screenshot_compute_output_offset(&pos, output);
+		screenshot_set_buffer_size_per_output(&buff_size, output);
+
 		output->buffer =
 			screenshot_create_shm_buffer(output->width,
 						     output->height,
@@ -498,9 +456,9 @@ agl_shooter_screenshot_all_outputs(struct screenshooter_data *sh_data)
 		sh_data->buffer_copy_done = 0;
 		while (!sh_data->buffer_copy_done)
 			wl_display_roundtrip(sh_data->display);
-	}
 
-	screenshot_write_png(&buff_size, &sh_data->output_list);
+		screenshot_write_png_per_output(&buff_size, output, xdg_output->name);
+	}
 }
 
 static void
@@ -509,6 +467,7 @@ agl_shooter_screenshot_output(struct screenshooter_output *sh_output)
 	int pos = 0;
 	struct buffer_size buff_size = {};
 	struct screenshooter_data *sh_data = sh_output->sh_data;
+	char *output_name;
 
 	screenshot_compute_output_offset(&pos, sh_output);
 	screenshot_set_buffer_size_per_output(&buff_size, sh_output);
@@ -526,7 +485,9 @@ agl_shooter_screenshot_output(struct screenshooter_output *sh_output)
 	while (!sh_data->buffer_copy_done)
 		wl_display_roundtrip(sh_data->display);
 
-	screenshot_write_png_per_output(&buff_size, sh_output);
+	output_name = agl_shooter_search_get_output_name(sh_output);
+	assert(output_name);
+	screenshot_write_png_per_output(&buff_size, sh_output, output_name);
 }
 
 static void
