@@ -42,7 +42,6 @@ foreach func: optional_libc_funcs
 endforeach
 
 dep_libsystemd = dependency('libsystemd', required: false)
-dep_libsmack = dependency('libsmack', required: false)
 dep_scanner = dependency('wayland-scanner')
 prog_scanner = find_program(dep_scanner.get_pkgconfig_variable('wayland_scanner'))
 dep_wp = dependency('wayland-protocols', version: '>= 1.18')
@@ -204,11 +203,6 @@ endif
 if deps_remoting.length() == depnames.length()
   config_h.set('HAVE_REMOTING', 1)
   message('Found remoting depends, enabling remoting')
-endif
-
-if dep_libsmack.found()
-  config_h.set('HAVE_SMACK', 1)
-  deps_libweston += dep_libsmack
 endif
 
 dir_module_agl_compositor = join_paths(join_paths(prefix_path, get_option('libdir')), 'agl-compositor')

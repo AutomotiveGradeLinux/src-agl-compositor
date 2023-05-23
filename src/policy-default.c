@@ -26,10 +26,6 @@
 #include "ivi-compositor.h"
 #include "policy.h"
 
-#ifdef HAVE_SMACK
-#include <sys/smack.h>
-#endif
-
 #include <string.h>
 
 /*

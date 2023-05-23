@@ -26,28 +26,8 @@
 #include "ivi-compositor.h"
 #include "policy.h"
 
-#ifdef HAVE_SMACK
-#include <sys/smack.h>
-#endif
-
 #include <string.h>
 #include "shared/helpers.h"
-
-#ifdef HAVE_SMACK
-static const char *const bind_agl_shell[] = {
-	"User::App::homescreen",
-	"User::App::cluster-gauges"	/* cluster-dashboard */
-};
-
-static const char *const bind_agl_shell_desktop[] = {
-	"User::App::launcher",
-	"User::App::alexa-viewer",
-	"User::App::tbtnavi",
-	"User::App::hvac",
-	"User::App::xdg-cluster-receiver",		/* cluster-receiver, native XDG app*/
-	"User::App::cluster-receiver"			/* cluster-receiver, Qt app  */
-};
-#endif
 
 static const char *const applications_permitted[] = {
 	"homescreen", "alexa-viewer", "launcher", "hvac",
@@ -66,31 +46,6 @@ ivi_policy_verify_permitted_app(const char *app_id)
 
 	return false;
 }
-
-#ifdef HAVE_SMACK
-/* helper to determine which applications are allowed to bind to the
- * private extensions
- */
-static bool
-ivi_policy_check_bind_agl_shell(const char *app_id)
-{
-	for (size_t i = 0; i < ARRAY_LENGTH(bind_agl_shell); i++)
-		if (strcmp(app_id, bind_agl_shell[i]) == 0)
-			return true;
-
-	return false;
-}
-
-static bool
-ivi_policy_check_bind_agl_shell_desktop(const char *app_id)
-{
-	for (size_t i = 0; i < ARRAY_LENGTH(bind_agl_shell_desktop); i++)
-		if (strcmp(app_id, bind_agl_shell_desktop[i]) == 0)
-			return true;
-
-	return false;
-}
-#endif
 
 static bool
 ivi_policy_verify_ivi_surface(struct ivi_surface *surf)
@@ -145,47 +100,11 @@ ivi_policy_default_surface_advertise_state_change(struct ivi_surface *surf, void
 	return ivi_policy_verify_ivi_surface(surf);
 }
 
-#ifdef HAVE_SMACK
-static bool
-ivi_policy_default_shell_bind_interface(void *client, void *interface)
-{
-	struct wl_interface *shell_interface = interface;
-	struct wl_client *conn_client = client;
-
-	pid_t pid, uid, gid;
-	int client_fd;
-	char *label;
-	bool ret = false;
-
-	wl_client_get_credentials(conn_client, &pid, &uid, &gid);
-
-	client_fd = wl_client_get_fd(conn_client);
-	if (smack_new_label_from_socket(client_fd, &label) < 0) {
-		return ret;
-	}
-
-	if (strcmp(shell_interface->name, "agl_shell") == 0)
-		ret = ivi_policy_check_bind_agl_shell(label);
-
-	if (strcmp(shell_interface->name, "agl_shell_desktop") == 0)
-		ret = ivi_policy_check_bind_agl_shell_desktop(label);
-
-	if (ret)
-		weston_log("Client with pid %d, uid %d, gid %d, allowed "
-				"to bind to %s for label %s\n", pid, uid, gid,
-				shell_interface->name, label);
-
-	/* client responsible for free'ing */
-	free(label);
-	return ret;
-}
-#else
 static bool
 ivi_policy_default_shell_bind_interface(void *client, void *interface)
 {
 	return false;
 }
-#endif
 
 static bool
 ivi_policy_default_allow_to_add(void *user_data)
