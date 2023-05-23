@@ -325,10 +325,6 @@ desktop_surface_removed(struct weston_desktop_surface *dsurface, void *userdata)
 	if (ivi_seat && ivi_seat->focused_surface == wsurface)
 		ivi_seat->focused_surface = NULL;
 
-	if (surface->role == IVI_SURFACE_ROLE_REMOTE &&
-	    output->type == OUTPUT_REMOTE)
-		ivi_destroy_waltham_destroy(surface);
-
 	/* check if there's a last 'remote' surface and insert a black
 	 * surface view if there's no background set for that output
 	 */

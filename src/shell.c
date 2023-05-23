@@ -46,10 +46,6 @@
 #include "agl-shell-server-protocol.h"
 #include "agl-shell-desktop-server-protocol.h"
 
-#ifdef HAVE_WALTHAM
-#include <waltham-transmitter/transmitter_api.h>
-#endif
-
 static void
 create_black_curtain_view(struct ivi_output *output);
 
@@ -125,88 +121,6 @@ ivi_set_desktop_surface_fullscreen(struct ivi_surface *surface)
 	agl_shell_desktop_advertise_application_id(ivi, surface);
 }
 
-#ifdef HAVE_WALTHAM
-void
-ivi_destroy_waltham_destroy(struct ivi_surface *surface)
-{
-	struct ivi_compositor *ivi = surface->ivi;
-	const struct weston_transmitter_api *api =
-		ivi->waltham_transmitter_api;
-
-	if (!api)
-		return;
-
-	if (surface->waltham_surface.transmitter_surface)
-		api->surface_destroy(surface->waltham_surface.transmitter_surface);
-}
-
-static void
-ivi_output_notify_waltham_plugin(struct ivi_surface *surface)
-{
-	struct ivi_compositor *ivi = surface->ivi;
-	const struct weston_transmitter_api *api = ivi->waltham_transmitter_api;
-	struct weston_transmitter *transmitter;
-	struct weston_transmitter_remote *trans_remote;
-	struct weston_surface *weston_surface;
-	struct weston_output *woutput = surface->remote.output->output;
-	const char *app_id;
-
-	if (!api)
-		return;
-
-	transmitter = api->transmitter_get(ivi->compositor);
-	if (!transmitter)
-		return;
-
-	trans_remote = api->get_transmitter_remote(woutput->name, transmitter);
-	if (!trans_remote) {
-		weston_log("Could not find a valie weston_transmitter_remote "
-				"that matches the output %s\n", woutput->name);
-		return;
-	}
-
-	app_id = weston_desktop_surface_get_app_id(surface->dsurface);
-	weston_surface =
-		weston_desktop_surface_get_surface(surface->dsurface);
-
-	weston_log("Forwarding app_id %s to remote %s\n", app_id, woutput->name);
-
-	/* this will have the effect of informing the remote side to create a
-	 * surface with the name app_id. W/ xdg-shell the following happens:
-	 *
-	 * compositor (server):
-	 * surface_push_to_remote():
-	 * 	waltham-transmitter plug-in
-	 * 		-> wthp_ivi_app_id_surface_create()
-	 *
-	 * client -- on the receiver side:
-	 * 	-> wthp_ivi_app_id_surface_create()
-	 * 		-> wth_receiver_weston_main()
-	 * 			-> wl_compositor_create_surface()
-	 * 			-> xdg_wm_base_get_xdg_surface
-	 * 			-> xdg_toplevel_set_app_id()
-	 * 			-> gst_init()
-	 * 			-> gst_parse_launch()
-	 *
-	 * wth_receiver_weston_main() will be invoked from the handler of
-	 * wthp_ivi_app_id_surface_create() and is responsible for setting-up
-	 * the gstreamer pipeline as well.
-	 */
-	surface->waltham_surface.transmitter_surface =
-	    api->surface_push_to_remote(weston_surface, app_id, trans_remote, NULL);
-}
-
-#else
-void
-ivi_destroy_waltham_destroy(struct ivi_surface *surface)
-{
-}
-static void
-ivi_output_notify_waltham_plugin(struct ivi_surface *surface)
-{
-}
-#endif
-
 static void
 ivi_set_desktop_surface_remote(struct ivi_surface *surface)
 {
@@ -226,9 +140,6 @@ ivi_set_desktop_surface_remote(struct ivi_surface *surface)
 	view = output->fullscreen_view.fs->view;
 	if (view->is_mapped || view->surface->is_mapped)
 		remove_black_curtain(output);
-
-	if (output->type == OUTPUT_WALTHAM)
-		ivi_output_notify_waltham_plugin(surface);
 
 	wl_list_insert(&ivi->surfaces, &surface->link);
 }

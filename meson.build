@@ -64,25 +64,6 @@ foreach depname : depnames
 endforeach
 
 
-# the transmitter plug-in requires waltham but we don't have a cflags or libs
-# for it so we add waltham depends here. Further more, the output is being
-# handled by remoting plug-in
-depnames_waltham = [
-  'waltham', 'waltham-transmitter',
-]
-
-deps_waltham = []
-foreach depname : depnames_waltham
-  dep = dependency(depname, required: false)
-  if dep.found()
-    deps_waltham += dep
-  else
-    message('Waltham requires @0@ which was not found. '.format(depname))
-  endif
-endforeach
-
-deps_waltham += deps_remoting
-
 agl_shell_xml = files('protocol/agl-shell.xml')
 agl_shell_desktop_xml = files('protocol/agl-shell-desktop.xml')
 agl_screenshooter = files('protocol/agl-screenshooter.xml')
@@ -223,13 +204,6 @@ endif
 if deps_remoting.length() == depnames.length()
   config_h.set('HAVE_REMOTING', 1)
   message('Found remoting depends, enabling remoting')
-endif
-
-if deps_waltham.length() == depnames_waltham.length() + depnames.length() and not get_option('waltham')
-  message('Found waltham depends, but waltham is deprecated')
-elif deps_waltham.length() == depnames_waltham.length() + depnames.length() and get_option('waltham')
-  config_h.set('HAVE_WALTHAM', 1)
-  message('Found waltham depends, enabling waltham')
 endif
 
 if dep_libsmack.found()

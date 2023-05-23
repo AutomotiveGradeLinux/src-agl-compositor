@@ -77,7 +77,6 @@ struct ivi_compositor {
 	const struct weston_windowed_output_api *window_api;
 	const struct weston_drm_output_api *drm_api;
 	const struct weston_remoting_api *remoting_api;
-	const struct weston_transmitter_api *waltham_transmitter_api;
 
 	struct wl_global *agl_shell;
 	struct wl_global *agl_shell_desktop;
@@ -135,9 +134,6 @@ struct ivi_surface;
 enum ivi_output_type {
 	OUTPUT_LOCAL,
 	OUTPUT_REMOTE,
-	/* same as remote but we need to signal the transmitter plug-in
-	 * for the surfaces to have to be forwarded to those remoted outputs */
-	OUTPUT_WALTHAM,
 };
 
 struct ivi_output {
@@ -269,13 +265,6 @@ enum ivi_surface_flags {
 	IVI_SURFACE_PROP_POSITION = (1 << 1),
 };
 
-/* the waltham surface is a pointer type as well and
- * in order to avoid adding ifdef for waltham use a
- * generic pointer, which will be only be valid when the
- * surface is a remote out on a waltham type of output */
-struct ivi_surface_waltham {
-	void *transmitter_surface;
-};
 
 struct ivi_surface {
 	struct ivi_compositor *ivi;
@@ -313,7 +302,6 @@ struct ivi_surface {
 		struct ivi_remote_surface remote;
 	};
 
-	struct ivi_surface_waltham waltham_surface;
 	struct wl_listener listener_advertise_app;
 	struct wl_signal signal_advertise_app;
 };
@@ -472,9 +460,6 @@ ivi_seat_reset_caps_sent(struct ivi_compositor *ivi);
 void
 agl_shell_desktop_advertise_application_id(struct ivi_compositor *ivi,
 					   struct ivi_surface *surface);
-void
-ivi_destroy_waltham_destroy(struct ivi_surface *surface);
-
 void
 ivi_check_pending_surface_desktop(struct ivi_surface *surface,
 				  enum ivi_surface_role *role);
