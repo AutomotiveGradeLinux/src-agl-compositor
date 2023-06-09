@@ -415,7 +415,7 @@ parse_transform(const char *transform, uint32_t *out)
 	return -1;
 }
 
-static int
+int
 parse_activation_area(const char *geometry, struct ivi_output *output)
 {
 	int n;

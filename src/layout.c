@@ -30,6 +30,7 @@
 #include <assert.h>
 #include <string.h>
 
+#include <libweston/config-parser.h>
 #include <libweston/libweston.h>
 #include <libweston-desktop/libweston-desktop.h>
 
@@ -155,6 +156,23 @@ void
 ivi_layout_init(struct ivi_compositor *ivi, struct ivi_output *output)
 {
 	bool use_default_area = true;
+	struct weston_config_section *section = output->config;
+	char *t;
+
+	weston_config_section_get_string(section, "activation-area", &t, NULL);
+	if (t) {
+		if (output->area_activation.width == 0 &&
+		    output->area_activation.height == 0 &&
+		    output->area_activation.x == 0 &&
+		    output->area_activation.y == 0) {
+			weston_log("WARNING: activation-area set in "
+					"configuration file, but yet applied!\n");
+			if (parse_activation_area(t, output) < 0)
+				weston_log("Invalid activation-area \"%s\" for output %s\n",
+					   t, output->name);
+		}
+	}
+	free(t);
 
 	ivi_background_init(ivi, output);
 

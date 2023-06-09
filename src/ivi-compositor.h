@@ -507,4 +507,7 @@ bool
 ivi_surface_count_one(struct ivi_output *ivi_output,
 		      enum ivi_surface_role role);
 
+int
+parse_activation_area(const char *geometry, struct ivi_output *output);
+
 #endif
