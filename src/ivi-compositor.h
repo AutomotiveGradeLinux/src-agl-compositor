@@ -507,4 +507,7 @@ shell_send_app_state(struct ivi_compositor *ivi, const char *app_id,
 void
 ivi_layout_destroy_saved_outputs(struct ivi_compositor *ivi);
 
+int
+parse_activation_area(const char *geometry, struct ivi_output *output);
+
 #endif
