@@ -170,6 +170,12 @@ ivi_layout_init(struct ivi_compositor *ivi, struct ivi_output *output)
 			if (parse_activation_area(t, output) < 0)
 				weston_log("Invalid activation-area \"%s\" for output %s\n",
 					   t, output->name);
+		} else {
+			weston_log("WARNING: activation-area detected in ini file, "
+					"but agl_shell override detected!\n");
+			if (parse_activation_area(t, output) < 0)
+				weston_log("Invalid activation-area \"%s\" for output %s\n",
+					   t, output->name);
 		}
 	}
 	free(t);
