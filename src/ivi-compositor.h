@@ -518,4 +518,7 @@ ivi_surface_count_one(struct ivi_output *ivi_output,
 int
 parse_activation_area(const char *geometry, struct ivi_output *output);
 
+bool
+is_shell_surface_xwayland(struct ivi_surface *surf);
+
 #endif

@@ -581,9 +581,12 @@ ivi_layout_desktop_committed(struct ivi_surface *surf)
 			return;
 		}
 
-		if (!surf->ivi->activate_by_default && !surf->xwayland.is_set) {
-			weston_log("Refusing to activate surface role %d, app_id %s\n",
-					surf->role, app_id);
+		if (!surf->ivi->activate_by_default &&
+		    (!surf->xwayland.is_set && !is_shell_surface_xwayland(surf))) {
+			weston_log("Refusing to activate surface role %d, app_id %s, type %s\n",
+					surf->role, app_id,
+					is_shell_surface_xwayland(surf) ?
+					"xwayland" : "regular");
 
 			if (!weston_desktop_surface_get_maximized(dsurf) ||
 			    geom.width != r_output->area.width ||
@@ -611,7 +614,7 @@ ivi_layout_desktop_committed(struct ivi_surface *surf)
 				 */
 				weston_log("Surface no app_id, role %s activating by default\n",
 					ivi_layout_get_surface_role_name(surf));
-				if (surf->xwayland.is_set) {
+				if (surf->xwayland.is_set || is_shell_surface_xwayland(surf)) {
 					ivi_layout_activate_by_surf(r_output, surf);
 					ivi_layout_activate_complete(r_output, surf);
 				} else {
