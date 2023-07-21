@@ -325,7 +325,7 @@ ivi_layout_activate_complete(struct ivi_output *output,
 		 * we're trying to complete activation with means we're
 		 * operating on the same app_id so do update previous_active as
 		 * it will overwrite it with the same value */
-		if (!strcmp(c_app_id, app_id)) {
+		if (app_id && !strcmp(c_app_id, app_id)) {
 			update_previous = false;
 		}
 	}
