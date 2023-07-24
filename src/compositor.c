@@ -1862,7 +1862,7 @@ int wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_da
 
 		weston_log("Printing available debug scopes:\n");
 
-		while ((nscope = weston_log_scopes_iterate(ivi.compositor, nscope))) {
+		while ((nscope = weston_log_scopes_iterate(log_ctx, nscope))) {
 			weston_log("\tscope name: %s, desc: %s",
 					weston_log_scope_get_name(nscope),
 					weston_log_scope_get_description(nscope));
