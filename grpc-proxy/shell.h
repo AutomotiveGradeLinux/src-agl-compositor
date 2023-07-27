@@ -46,4 +46,5 @@ public:
 	void SetAppNormal(const std::string &app_id);
 	void SetAppFullscreen(const std::string &app_id);
 	void SetAppOnOutput(const std::string &app_id, const std::string &output);
+	void SetAppPosition(const std::string &app_id, int32_t x, int32_t y);
 };

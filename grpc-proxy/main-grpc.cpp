@@ -275,7 +275,7 @@ global_add(void *data, struct wl_registry *reg, uint32_t id,
 		sh->shell =
 			static_cast<struct agl_shell *>(wl_registry_bind(reg, id,
 				&agl_shell_interface,
-				std::min(static_cast<uint32_t>(8), version)));
+				std::min(static_cast<uint32_t>(9), version)));
 		agl_shell_add_listener(sh->shell, &shell_listener, data);
 		sh->version = version;
 	} else if (strcmp(interface, "wl_output") == 0) {
@@ -299,7 +299,7 @@ global_add_init(void *data, struct wl_registry *reg, uint32_t id,
 		sh->shell =
 			static_cast<struct agl_shell *>(wl_registry_bind(reg, id,
 				&agl_shell_interface,
-				std::min(static_cast<uint32_t>(8), version)));
+				std::min(static_cast<uint32_t>(9), version)));
 		agl_shell_add_listener(sh->shell, &shell_listener_init, data);
 		sh->version = version;
 	}

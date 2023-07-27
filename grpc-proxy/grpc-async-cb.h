@@ -96,6 +96,10 @@ public:
 			const ::agl_shell_ipc::AppOnOutputRequest* request,
 			::agl_shell_ipc::AppOnOutputResponse* /*response*/) override;
 
+	grpc::ServerUnaryReactor *SetAppPosition(grpc::CallbackServerContext *context,
+			const ::agl_shell_ipc::AppPositionRequest* request,
+			::agl_shell_ipc::AppPositionResponse* /*response*/) override;
+
 	grpc::ServerWriteReactor< ::agl_shell_ipc::AppStateResponse>* AppStatusState(
 	      ::grpc::CallbackServerContext* /*context*/,
 	      const ::agl_shell_ipc::AppStateRequest* /*request*/)  override;

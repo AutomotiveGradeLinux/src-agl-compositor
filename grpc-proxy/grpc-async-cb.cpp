@@ -1,5 +1,5 @@
 /*
- * Copyright © 2022 Collabora, Ltd.
+ * Copyright © 2022, 2023 Collabora, Ltd.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -152,6 +152,18 @@ GrpcServiceImpl::SetAppOnOutput(grpc::CallbackServerContext *context,
                             ::agl_shell_ipc::AppOnOutputResponse* /* response */)
 {
 	m_aglShell->SetAppOnOutput(request->app_id(), request->output());
+
+	grpc::ServerUnaryReactor* reactor = context->DefaultReactor();
+	reactor->Finish(grpc::Status::OK);
+	return reactor;
+}
+
+grpc::ServerUnaryReactor *
+GrpcServiceImpl::SetAppPosition(grpc::CallbackServerContext *context,
+                            const ::agl_shell_ipc::AppPositionRequest* request,
+                            ::agl_shell_ipc::AppPositionResponse* /* response */)
+{
+	m_aglShell->SetAppPosition(request->app_id(), request->x(), request->y());
 
 	grpc::ServerUnaryReactor* reactor = context->DefaultReactor();
 	reactor->Finish(grpc::Status::OK);

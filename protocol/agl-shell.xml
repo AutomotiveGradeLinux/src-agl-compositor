@@ -22,7 +22,7 @@
     FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
     DEALINGS IN THE SOFTWARE.
   </copyright>
-  <interface name="agl_shell" version="8">
+  <interface name="agl_shell" version="9">
     <description summary="user interface for Automotive Grade Linux platform">
       Starting with version 2 of the protocol, the client is required to wait
       for the 'bound_ok' or 'bound_fail' events in order to proceed further.
@@ -275,17 +275,17 @@
     </request>
 
     <request name="set_app_output" since="8">
-      <description summary="Assign an application to a particular output">
-        This would allow the compositor to place an application on a particular
-        output, if that output is indeed available. This can happen before
+      <description summary="assign an application to a particular output">
+        this would allow the compositor to place an application on a particular
+        output, if that output is indeed available. this can happen before
         application is started which would make the application start on that
-        particular output. If the application is already started it would
+        particular output. if the application is already started it would
         move the application to that output.
 
-        There's no persistence of this request, once the application terminated
+        there's no persistence of this request, once the application terminated
         you'll need to issue this request again for that particular app_id.
 
-        See xdg_toplevel.set_app_id from the xdg-shell protocol for a
+        see xdg_toplevel.set_app_id from the xdg-shell protocol for a
         description of app_id.
       </description>
       <arg name="app_id" type="string"/>
@@ -304,6 +304,26 @@
       <arg name="app_id" type="string"/>
       <arg name="output_name" type="string"/>
     </event>
+
+    <request name="set_app_position" since="9">
+      <description summary="move window to a specific position">
+        Clients can inform the compositor to position a floating type of window
+        at the specific location, pointed by x and y value. If the window is
+        not a floating type, the request will be discarded. Note that
+        positioning doesn't take output into consideration nor does orientation
+        of the outpus. It is expected that the client knows already where the
+        position is localed in global coordonate space. If the window doesn't
+        exist the compositor will ignore the request. For this request to
+        function properly the window would first to be set as floating and then
+        it can be moved using this request.
+
+        see xdg_toplevel.set_app_id from the xdg-shell protocol for a
+        description of app_id.
+      </description>
+      <arg name="app_id" type="string"/>
+      <arg name="x" type="int"/>
+      <arg name="y" type="int"/>
+    </request>
   </interface>
 
   <interface name="agl_shell_ext" version="1">

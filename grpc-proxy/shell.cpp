@@ -121,6 +121,15 @@ Shell::SetAppOnOutput(const std::string &app_id, const std::string &output)
 }
 
 void
+Shell::SetAppPosition(const std::string &app_id, const int32_t x, const int32_t y)
+{
+	struct agl_shell *shell = this->m_shell.get();
+
+	agl_shell_set_app_position(shell, app_id.c_str(), x, y);
+	wl_display_flush(m_shell_data->wl_display);
+}
+
+void
 Shell::SetAppSplit(const std::string &app_id, uint32_t orientation)
 {
 	(void) app_id;
