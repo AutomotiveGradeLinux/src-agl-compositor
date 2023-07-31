@@ -171,6 +171,19 @@ GrpcServiceImpl::SetAppPosition(grpc::CallbackServerContext *context,
 }
 
 grpc::ServerUnaryReactor *
+GrpcServiceImpl::SetAppScale(grpc::CallbackServerContext *context,
+                            const ::agl_shell_ipc::AppScaleRequest* request,
+                            ::agl_shell_ipc::AppScaleResponse* /* response */)
+{
+	m_aglShell->SetAppScale(request->app_id(),
+				request->width(), request->height());
+
+	grpc::ServerUnaryReactor* reactor = context->DefaultReactor();
+	reactor->Finish(grpc::Status::OK);
+	return reactor;
+}
+
+grpc::ServerUnaryReactor *
 GrpcServiceImpl::SetAppSplit(grpc::CallbackServerContext *context,
            const ::agl_shell_ipc::SplitRequest* request,
            ::agl_shell_ipc::SplitResponse* /*response*/)

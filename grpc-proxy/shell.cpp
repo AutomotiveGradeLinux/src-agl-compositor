@@ -130,6 +130,16 @@ Shell::SetAppPosition(const std::string &app_id, const int32_t x, const int32_t 
 }
 
 void
+Shell::SetAppScale(const std::string &app_id,
+		const int32_t width, const int32_t height)
+{
+	struct agl_shell *shell = this->m_shell.get();
+
+	agl_shell_set_app_scale(shell, app_id.c_str(), width, height);
+	wl_display_flush(m_shell_data->wl_display);
+}
+
+void
 Shell::SetAppSplit(const std::string &app_id, uint32_t orientation)
 {
 	(void) app_id;

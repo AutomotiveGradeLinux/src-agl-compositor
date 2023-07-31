@@ -1679,6 +1679,21 @@ shell_set_app_position(struct wl_client *client, struct wl_resource *res,
 }
 
 static void
+shell_set_app_scale(struct wl_client *client, struct wl_resource *res,
+		    const char *app_id, int32_t width, int32_t height)
+{
+
+	struct ivi_compositor *ivi = wl_resource_get_user_data(res);
+	struct ivi_surface *surf = ivi_find_app(ivi, app_id);
+
+	if (!surf || !app_id || surf->role != IVI_SURFACE_ROLE_POPUP)
+		return;
+
+	weston_desktop_surface_set_size(surf->dsurface, width, height);
+	weston_compositor_schedule_repaint(ivi->compositor);
+}
+
+static void
 shell_ext_destroy(struct wl_client *client, struct wl_resource *res)
 {
 	wl_resource_destroy(res);
@@ -1707,6 +1722,7 @@ static const struct agl_shell_interface agl_shell_implementation = {
 	.set_app_fullscreen = shell_set_app_fullscreen,
 	.set_app_output = shell_set_app_output,
 	.set_app_position = shell_set_app_position,
+	.set_app_scale = shell_set_app_scale,
 };
 
 static const struct agl_shell_ext_interface agl_shell_ext_implementation = {
@@ -2008,7 +2024,7 @@ int
 ivi_shell_create_global(struct ivi_compositor *ivi)
 {
 	ivi->agl_shell = wl_global_create(ivi->compositor->wl_display,
-					  &agl_shell_interface, 9,
+					  &agl_shell_interface, 10,
 					  ivi, bind_agl_shell);
 	if (!ivi->agl_shell) {
 		weston_log("Failed to create wayland global.\n");

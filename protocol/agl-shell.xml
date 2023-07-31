@@ -22,7 +22,7 @@
     FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
     DEALINGS IN THE SOFTWARE.
   </copyright>
-  <interface name="agl_shell" version="9">
+  <interface name="agl_shell" version="10">
     <description summary="user interface for Automotive Grade Linux platform">
       Starting with version 2 of the protocol, the client is required to wait
       for the 'bound_ok' or 'bound_fail' events in order to proceed further.
@@ -323,6 +323,24 @@
       <arg name="app_id" type="string"/>
       <arg name="x" type="int"/>
       <arg name="y" type="int"/>
+    </request>
+
+    <request name="set_app_scale" since="10">
+      <description summary="scale window to a specific rectangle">
+        Clients can inform the compositor to scale a floating type of window
+        to the values specified in width and height. If the window is
+        not a floating type, the request will be discarded. If the window
+        doesn't exist the compositor will ignore the request. For this request
+        to function properly the window would first to be set as floating
+        and then it can be moved using this request.
+
+
+        see xdg_toplevel.set_app_id from the xdg-shell protocol for a
+        description of app_id.
+      </description>
+      <arg name="app_id" type="string"/>
+      <arg name="width" type="int"/>
+      <arg name="height" type="int"/>
     </request>
   </interface>
 
