@@ -30,7 +30,9 @@
 #include "shared/helpers.h"
 #include <libweston/libweston.h>
 #include <libweston-desktop/libweston-desktop.h>
+#ifdef BUILD_XWAYLAND
 #include <libweston/xwayland-api.h>
+#endif
 
 #include "agl-shell-desktop-server-protocol.h"
 
@@ -556,6 +558,7 @@ ivi_shell_destroy(struct wl_listener *listener, void *data)
 static void
 transform_handler(struct wl_listener *listener, void *data)
 {
+#ifdef BUILD_XWAYLAND
 	struct weston_surface *surface = data;
 	struct ivi_surface *ivisurf = get_ivi_shell_surface(surface);
 	const struct weston_xwayland_surface_api *api;
@@ -580,6 +583,27 @@ transform_handler(struct wl_listener *listener, void *data)
 	y = ivisurf->view->geometry.y;
 
 	api->send_position(surface, x, y);
+#endif
+}
+
+bool
+is_shell_surface_xwayland(struct ivi_surface *surf)
+{
+#ifdef BUILD_XWAYLAND
+	const struct weston_xwayland_surface_api *api;
+	struct ivi_compositor *ivi = surf->ivi;
+	struct weston_surface *surface;
+
+	api = ivi->xwayland_surface_api;
+
+	if (!api)
+		return false;
+
+	surface = weston_desktop_surface_get_surface(surf->dsurface);
+	return api->is_xwayland_surface(surface);
+#else
+	return false;
+#endif
 }
 
 int
