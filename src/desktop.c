@@ -29,7 +29,7 @@
 
 #include "shared/helpers.h"
 #include <libweston/libweston.h>
-#include <libweston-desktop/libweston-desktop.h>
+#include <libweston/desktop.h>
 #ifdef BUILD_XWAYLAND
 #include <libweston/xwayland-api.h>
 #endif

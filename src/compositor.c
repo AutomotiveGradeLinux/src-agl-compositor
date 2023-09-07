@@ -57,6 +57,7 @@
 #include "shared/os-compatibility.h"
 #include "shared/helpers.h"
 
+#include "config.h"
 #include "agl-shell-server-protocol.h"
 
 #ifdef HAVE_REMOTING
@@ -99,6 +100,67 @@ sigint_helper(int sig)
 {
        raise(SIGUSR2);
 }
+
+struct {
+        char *name;
+        enum weston_renderer_type renderer;
+} renderer_name_map[] = {
+        { "auto", WESTON_RENDERER_AUTO },
+        { "gl", WESTON_RENDERER_GL },
+        { "noop", WESTON_RENDERER_NOOP },
+        { "pixman", WESTON_RENDERER_PIXMAN },
+};
+
+struct {
+	char *short_name;
+	char *long_name;
+	enum weston_compositor_backend backend;
+} backend_name_map[] = {
+	{ "drm", "drm-backend.so", WESTON_BACKEND_DRM },
+	{ "headless", "headless-backend.so", WESTON_BACKEND_HEADLESS },
+	{ "pipewire", "pipewire-backend.so", WESTON_BACKEND_PIPEWIRE },
+	{ "rdp", "rdp-backend.so", WESTON_BACKEND_RDP },
+	{ "vnc", "vnc-backend.so", WESTON_BACKEND_VNC },
+	{ "wayland", "wayland-backend.so", WESTON_BACKEND_WAYLAND },
+	{ "x11", "x11-backend.so", WESTON_BACKEND_X11 },
+};
+
+bool
+get_backend_from_string(const char *name,
+		enum weston_compositor_backend *backend)
+{
+	size_t i;
+
+	for (i = 0; i < ARRAY_LENGTH(backend_name_map); i++) {
+		if (strcmp(name, backend_name_map[i].short_name) == 0 ||
+				strcmp(name, backend_name_map[i].long_name) == 0) {
+			*backend = backend_name_map[i].backend;
+			return true;
+		}
+	}
+
+	return false;
+}
+
+
+bool
+get_renderer_from_string(const char *name, enum weston_renderer_type *renderer)
+{
+	size_t i;
+
+	if (!name)
+		name = "auto";
+
+	for (i = 0; i < ARRAY_LENGTH(renderer_name_map); i++) {
+		if (strcmp(name, renderer_name_map[i].name) == 0) {
+			*renderer = renderer_name_map[i].renderer;
+			return true;
+		}
+	}
+
+	return false;
+}
+
 
 void
 ivi_layout_save(struct ivi_compositor *ivi, struct ivi_output *output)
@@ -978,7 +1040,8 @@ load_remoting_plugin(struct ivi_compositor *ivi, struct weston_config *config)
 	int (*module_init)(struct weston_compositor *wc);
 
 	module_init = weston_load_module("remoting-plugin.so",
-					 "weston_module_init");
+					 "weston_module_init",
+					 LIBWESTON_MODULEDIR);
 	if (!module_init)
 		return -1;
 
@@ -999,7 +1062,8 @@ load_remoting_plugin(struct weston_compositor *compositor, struct weston_config 
 #endif
 
 static int
-load_drm_backend(struct ivi_compositor *ivi, int *argc, char *argv[])
+load_drm_backend(struct ivi_compositor *ivi, int *argc, char *argv[],
+		 enum weston_renderer_type renderer)
 {
 	struct weston_drm_backend_config config = {
 		.base = {
@@ -1009,7 +1073,7 @@ load_drm_backend(struct ivi_compositor *ivi, int *argc, char *argv[])
 	};
 	struct weston_config_section *section;
 	int use_current_mode = 0;
-	int use_pixman = 0;
+	bool force_pixman = false;
 	bool use_shadow;
 	bool without_input = false;
 	int ret;
@@ -1018,12 +1082,17 @@ load_drm_backend(struct ivi_compositor *ivi, int *argc, char *argv[])
 		{ WESTON_OPTION_STRING, "seat", 0, &config.seat_id },
 		{ WESTON_OPTION_STRING, "drm-device", 0, &config.specific_device },
 		{ WESTON_OPTION_BOOLEAN, "current-mode", 0, &use_current_mode },
-		{ WESTON_OPTION_BOOLEAN, "use-pixman", 0, &use_pixman },
+		{ WESTON_OPTION_BOOLEAN, "use-pixman", 0, &force_pixman },
 		{ WESTON_OPTION_BOOLEAN, "continue-without-input", false, &without_input }
 	};
 
 	parse_options(options, ARRAY_LENGTH(options), argc, argv);
-	config.use_pixman = use_pixman;
+
+	if (force_pixman)
+		config.renderer = WESTON_RENDERER_PIXMAN;
+	else
+		config.renderer = WESTON_RENDERER_AUTO;
+
 	ivi->cmdline.use_current_mode = use_current_mode;
 
 	section = weston_config_get_section(ivi->config, "core", NULL, NULL);
@@ -1059,7 +1128,7 @@ error:
 
 static void
 windowed_parse_common_options(struct ivi_compositor *ivi, int *argc, char *argv[],
-			      bool *use_pixman, bool *fullscreen, int *output_count)
+			      bool *force_pixman, bool *fullscreen, int *output_count)
 {
 	struct weston_config_section *section;
 	bool pixman;
@@ -1069,17 +1138,17 @@ windowed_parse_common_options(struct ivi_compositor *ivi, int *argc, char *argv[
 		{ WESTON_OPTION_INTEGER, "width", 0, &ivi->cmdline.width },
 		{ WESTON_OPTION_INTEGER, "height", 0, &ivi->cmdline.height },
 		{ WESTON_OPTION_INTEGER, "scale", 0, &ivi->cmdline.scale },
-		{ WESTON_OPTION_BOOLEAN, "use-pixman", 0, &pixman },
+		{ WESTON_OPTION_BOOLEAN, "use-pixman", 0, &force_pixman },
 		{ WESTON_OPTION_BOOLEAN, "fullscreen", 0, &fs },
 		{ WESTON_OPTION_INTEGER, "output-count", 0, output_count },
 	};
 
 	section = weston_config_get_section(ivi->config, "core", NULL, NULL);
-	weston_config_section_get_bool(section, "use-pixman", &pixman, 0);
+	weston_config_section_get_bool(section, "use-pixman", &pixman, false);
 
 	*output_count = 1;
 	parse_options(options, ARRAY_LENGTH(options), argc, argv);
-	*use_pixman = pixman;
+	*force_pixman = pixman;
 	*fullscreen = fs;
 }
 
@@ -1110,7 +1179,7 @@ windowed_create_outputs(struct ivi_compositor *ivi, int output_count,
 			continue;
 		}
 
-		if (ivi->window_api->create_head(ivi->compositor, output_name) < 0) {
+		if (ivi->window_api->create_head(ivi->compositor->backend, output_name) < 0) {
 			free(output_name);
 			return -1;
 		}
@@ -1123,7 +1192,7 @@ windowed_create_outputs(struct ivi_compositor *ivi, int output_count,
 		if (asprintf(&default_output, "%s%d", name_prefix, i) < 0)
 			return -1;
 
-		if (ivi->window_api->create_head(ivi->compositor, default_output) < 0) {
+		if (ivi->window_api->create_head(ivi->compositor->backend, default_output) < 0) {
 			free(default_output);
 			return -1;
 		}
@@ -1135,7 +1204,8 @@ windowed_create_outputs(struct ivi_compositor *ivi, int output_count,
 }
 
 static int
-load_wayland_backend(struct ivi_compositor *ivi, int *argc, char *argv[])
+load_wayland_backend(struct ivi_compositor *ivi, int *argc, char *argv[],
+		     enum weston_renderer_type renderer)
 {
 	struct weston_wayland_backend_config config = {
 		.base = {
@@ -1146,6 +1216,7 @@ load_wayland_backend(struct ivi_compositor *ivi, int *argc, char *argv[])
 	struct weston_config_section *section;
 	int sprawl = 0;
 	int output_count;
+	bool force_pixman = false;
 	int ret;
 
 	const struct weston_option options[] = {
@@ -1153,7 +1224,7 @@ load_wayland_backend(struct ivi_compositor *ivi, int *argc, char *argv[])
 		{ WESTON_OPTION_STRING, "sprawl", 0, &sprawl },
 	};
 
-	windowed_parse_common_options(ivi, argc, argv, &config.use_pixman,
+	windowed_parse_common_options(ivi, argc, argv, &force_pixman,
 				      &config.fullscreen, &output_count);
 
 	parse_options(options, ARRAY_LENGTH(options), argc, argv);
@@ -1191,7 +1262,8 @@ load_wayland_backend(struct ivi_compositor *ivi, int *argc, char *argv[])
 
 #ifdef HAVE_BACKEND_X11
 static int
-load_x11_backend(struct ivi_compositor *ivi, int *argc, char *argv[])
+load_x11_backend(struct ivi_compositor *ivi, int *argc, char *argv[],
+		 enum weston_renderer_type renderer)
 {
 	struct weston_x11_backend_config config = {
 		.base = {
@@ -1202,15 +1274,20 @@ load_x11_backend(struct ivi_compositor *ivi, int *argc, char *argv[])
 	int no_input = 0;
 	int output_count;
 	int ret;
+	bool force_pixman = false;
 
 	const struct weston_option options[] = {
 	       { WESTON_OPTION_BOOLEAN, "no-input", 0, &no_input },
 	};
 
-	windowed_parse_common_options(ivi, argc, argv, &config.use_pixman,
+	windowed_parse_common_options(ivi, argc, argv, &force_pixman,
 				      &config.fullscreen, &output_count);
 
 	parse_options(options, ARRAY_LENGTH(options), argc, argv);
+	if (force_pixman)
+		config.renderer = WESTON_RENDERER_PIXMAN;
+	else
+		config.renderer = WESTON_RENDERER_AUTO;
 	config.no_input = no_input;
 
 	ret = weston_compositor_load_backend(ivi->compositor, WESTON_BACKEND_X11,
@@ -1237,29 +1314,40 @@ load_x11_backend(struct ivi_compositor *ivi, int *argc, char *argv[])
 
 #ifdef HAVE_BACKEND_HEADLESS
 static int
-load_headless_backend(struct ivi_compositor *ivi, int *argc, char **argv)
+load_headless_backend(struct ivi_compositor *ivi, int *argc, char **argv,
+		      enum weston_renderer_type renderer)
 {
 	struct weston_headless_backend_config config = {};
 	int ret = 0;
 
-	bool use_pixman;
+	bool force_pixman = false;
 	bool fullscreen;
-	bool use_gl;
+	bool force_gl = false;
 	int output_count;
 
 	struct weston_compositor *c = ivi->compositor;
 
 	const struct weston_option options[] = {
-		{ WESTON_OPTION_BOOLEAN, "use-pixman", 0, &use_pixman },
-		{ WESTON_OPTION_BOOLEAN, "use-gl", 0, &use_gl },
+		{ WESTON_OPTION_BOOLEAN, "use-pixman", false, &force_pixman },
+		{ WESTON_OPTION_BOOLEAN, "use-gl", false, &force_gl },
 	};
 
-	windowed_parse_common_options(ivi, argc, argv, &use_pixman,
+	windowed_parse_common_options(ivi, argc, argv, &force_pixman,
 			&fullscreen, &output_count);
 
 	parse_options(options, ARRAY_LENGTH(options), argc, argv);
-	config.use_pixman = use_pixman;
-	config.use_gl = use_gl;
+
+	if ((force_pixman && force_gl) ||
+	    (renderer != WESTON_RENDERER_AUTO && (force_pixman || force_gl))) {
+		weston_log("Conflicting renderer specifications\n");
+		return -1;
+	} else if (force_pixman) {
+		config.renderer = WESTON_RENDERER_PIXMAN;
+	} else if (force_gl) {
+		config.renderer = WESTON_RENDERER_GL;
+	} else {
+		config.renderer = renderer;
+	}
 
 	config.base.struct_version = WESTON_HEADLESS_BACKEND_CONFIG_VERSION;
 	config.base.struct_size = sizeof(struct weston_headless_backend_config);
@@ -1276,7 +1364,7 @@ load_headless_backend(struct ivi_compositor *ivi, int *argc, char **argv)
 		return -1;
 	}
 
-	if (ivi->window_api->create_head(c, "headless") < 0) {
+	if (ivi->window_api->create_head(c->backend, "headless") < 0) {
 		weston_log("Cannot create headless back-end\n");
 		return -1;
 	}
@@ -1285,7 +1373,7 @@ load_headless_backend(struct ivi_compositor *ivi, int *argc, char **argv)
 }
 #else
 static int
-load_headless_backend(struct ivi_compositor *ivi, int *argc, char **argv)
+load_headless_backend(struct ivi_compositor *ivi, int *argc, char **argv, enum weston_renderer_type renderer)
 {
 	return -1;
 }
@@ -1426,9 +1514,21 @@ load_rdp_backend(struct ivi_compositor *ivi, int *argc, char **argv)
 
 
 static int
-load_backend(struct ivi_compositor *ivi, const char *backend,
-	     int *argc, char *argv[])
+load_backend(struct ivi_compositor *ivi, int *argc, char **argv,
+	     const char *backend_name, const char *renderer_name)
 {
+	enum weston_compositor_backend backend;
+	enum weston_renderer_type renderer;
+
+	if (!get_backend_from_string(backend_name, &backend)) {
+		weston_log("Error: unknown backend \"%s\"\n", backend_name);
+		return -1;
+	}
+
+	if (!get_renderer_from_string(renderer_name, &renderer)) {
+		weston_log("Error: unknown renderer \"%s\"\n", renderer_name);
+		return -1;
+	}
 	if (strcmp(backend, "drm-backend.so") == 0) {
 		return load_drm_backend(ivi, argc, argv);
 	} else if (strcmp(backend, "wayland-backend.so") == 0) {
@@ -1439,9 +1539,8 @@ load_backend(struct ivi_compositor *ivi, const char *backend,
 		return load_headless_backend(ivi, argc, argv);
 	} else if (strcmp(backend, "rdp-backend.so") == 0) {
 		return load_rdp_backend(ivi, argc, argv);
-	}
 
-	weston_log("fatal: unknown backend '%s'.\n", backend);
+	weston_log("fatal: unknown backend '%s'.\n", backend_name);
 	return -1;
 }
 
@@ -1466,7 +1565,7 @@ load_modules(struct ivi_compositor *ivi, const char *modules,
 		} else if (strstr(buffer, "systemd-notify.so")) {
 			weston_log("systemd-notify plug-in already loaded!\n");
 		} else {
-			module_init = weston_load_module(buffer, "wet_module_init");
+			module_init = weston_load_module(buffer, "wet_module_init", WESTON_MODULEDIR);
 			if (!module_init)
 				return -1;
 
@@ -1933,8 +2032,10 @@ int wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_da
 	int ret = EXIT_FAILURE;
 	bool xwayland = false;
 	struct sigaction action;
+	char *renderer = NULL;
 
 	const struct weston_option core_options[] = {
+		{ WESTON_OPTION_STRING, "renderer", 0, &renderer },
 		{ WESTON_OPTION_STRING, "backend", 'B', &backend },
 		{ WESTON_OPTION_STRING, "socket", 'S', &socket_name },
 		{ WESTON_OPTION_STRING, "log", 0, &log },
@@ -2047,7 +2148,7 @@ int wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_da
 	if (compositor_init_config(&ivi) < 0)
 		goto error_compositor;
 
-	if (load_backend(&ivi, backend, &argc, argv) < 0) {
+	if (load_backend(&ivi, &argc, argv, backend, renderer) < 0) {
 		weston_log("fatal: failed to create compositor backend.\n");
 		goto error_compositor;
 	}

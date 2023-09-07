@@ -32,7 +32,7 @@
 #include <libweston/backend-drm.h>
 #include <libweston/libweston.h>
 #include <libweston/windowed-output-api.h>
-#include <libweston-desktop/libweston-desktop.h>
+#include <libweston/desktop.h>
 
 #include "remote.h"
 

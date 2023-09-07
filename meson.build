@@ -11,7 +11,7 @@ project('agl-compositor',
 )
 
 config_h = configuration_data()
-libweston_version = 'libweston-11'
+libweston_version = 'libweston-12'
 pkgconfig = import('pkgconfig')
 fs = import('fs')
 
@@ -22,6 +22,7 @@ add_project_arguments(
   cc.get_supported_arguments([
     '-Wno-unused-parameter',
     '-Wno-pedantic',
+    '-Wno-deprecated-declarations'
   ]),
   language: 'c'
 )
@@ -123,9 +124,11 @@ deps_libweston = [
   dependency('wayland-server'),
   dependency('weston'),
   libweston_dep,
-  dependency('libweston-desktop-11'),
 ]
 
+weston_module_dir = libweston_dep.get_pkgconfig_variable('libdir')
+config_h.set_quoted('WESTON_MODULEDIR', join_paths(weston_module_dir, 'weston'))
+config_h.set_quoted('LIBWESTON_MODULEDIR', join_paths(weston_module_dir, libweston_version))
 
 srcs_agl_compositor = [
 	'src/compositor.c',

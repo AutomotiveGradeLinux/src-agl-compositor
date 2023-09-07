@@ -1029,7 +1029,7 @@ curtain_get_label(struct weston_surface *surface, char *buf, size_t len)
 }
 
 static void
-curtain_surface_committed(struct weston_surface *es, int32_t sx, int32_t sy)
+curtain_surface_committed(struct weston_surface *es, struct weston_coord_surface new_origin)
 {
 
 }
