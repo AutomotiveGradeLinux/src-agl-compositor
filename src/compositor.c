@@ -1306,7 +1306,8 @@ load_x11_backend(struct ivi_compositor *ivi, int *argc, char *argv[],
 }
 #else
 static int
-load_x11_backend(struct ivi_compositor *ivi, int *argc, char *argv[])
+load_x11_backend(struct ivi_compositor *ivi, int *argc, char **argv,
+		 enum weston_renderer_type renderer)
 {
 	return -1;
 }
@@ -1937,6 +1938,7 @@ usage(int error_code)
 			"\t\t\t\twayland-backend.so\n"
 			"\t\t\t\tx11-backend.so\n"
 			"\t\t\t\theadless-backend.so\n"
+		"  -r, --renderer=NAME\tName of renderer to use: auto, gl, noop, pixman\n"
 		"  -S, --socket=NAME\tName of socket to listen on\n"
 		"  --log=FILE\t\tLog to the given file\n"
 		"  -c, --config=FILE\tConfig file to load, defaults to agl-compositor.ini\n"
@@ -2035,7 +2037,7 @@ int wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_da
 	char *renderer = NULL;
 
 	const struct weston_option core_options[] = {
-		{ WESTON_OPTION_STRING, "renderer", 0, &renderer },
+		{ WESTON_OPTION_STRING, "renderer", 'r', &renderer },
 		{ WESTON_OPTION_STRING, "backend", 'B', &backend },
 		{ WESTON_OPTION_STRING, "socket", 'S', &socket_name },
 		{ WESTON_OPTION_STRING, "log", 0, &log },
