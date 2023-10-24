@@ -63,6 +63,7 @@ private:
 class GrpcServiceImpl final : public agl_shell_ipc::AglShellManagerService::CallbackService {
 public:
 	GrpcServiceImpl(Shell *aglShell) : m_aglShell(aglShell) {}
+	void setAglShell(Shell *_aglShell) { m_aglShell = _aglShell; }
 
 	grpc::ServerUnaryReactor *ActivateApp(grpc::CallbackServerContext *context,
 			const ::agl_shell_ipc::ActivateRequest* request,
@@ -109,5 +110,5 @@ public:
 	      const ::agl_shell_ipc::AppStateRequest* /*request*/)  override;
 
 private:
-       Shell *m_aglShell;
+       Shell *m_aglShell = nullptr;
 };

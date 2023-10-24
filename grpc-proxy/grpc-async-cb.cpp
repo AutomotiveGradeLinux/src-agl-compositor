@@ -89,6 +89,10 @@ GrpcServiceImpl::ActivateApp(grpc::CallbackServerContext *context,
 {
 	LOG("activating app %s on output %s\n", request->app_id().c_str(),
 						request->output_name().c_str());
+	if (!m_aglShell) {
+		LOG("m_aglShell not set-up\n");
+		return nullptr;
+	}
 
 	m_aglShell->ActivateApp(request->app_id(), request->output_name());
 
@@ -102,6 +106,11 @@ GrpcServiceImpl::DeactivateApp(grpc::CallbackServerContext *context,
                               const ::agl_shell_ipc::DeactivateRequest* request,
                               ::agl_shell_ipc::DeactivateResponse* /*response*/)
 {
+	if (!m_aglShell) {
+		LOG("m_aglShell not set-up\n");
+		return nullptr;
+	}
+
 	m_aglShell->DeactivateApp(request->app_id());
 
 	grpc::ServerUnaryReactor* reactor = context->DefaultReactor();
@@ -114,6 +123,10 @@ GrpcServiceImpl::SetAppFloat(grpc::CallbackServerContext *context,
                             const ::agl_shell_ipc::FloatRequest* request,
                             ::agl_shell_ipc::FloatResponse* /* response */)
 {
+	if (!m_aglShell) {
+		LOG("m_aglShell not set-up\n");
+		return nullptr;
+	}
 	m_aglShell->SetAppFloat(request->app_id(),
 				request->x_pos(), request->y_pos());
 
@@ -127,6 +140,10 @@ GrpcServiceImpl::SetAppNormal(grpc::CallbackServerContext *context,
                             const ::agl_shell_ipc::NormalRequest* request,
                             ::agl_shell_ipc::NormalResponse* /* response */)
 {
+	if (!m_aglShell) {
+		LOG("m_aglShell not set-up\n");
+		return nullptr;
+	}
 	m_aglShell->SetAppNormal(request->app_id());
 
 	grpc::ServerUnaryReactor* reactor = context->DefaultReactor();
@@ -139,6 +156,10 @@ GrpcServiceImpl::SetAppFullscreen(grpc::CallbackServerContext *context,
                             const ::agl_shell_ipc::FullscreenRequest* request,
                             ::agl_shell_ipc::FullscreenResponse* /* response */)
 {
+	if (!m_aglShell) {
+		LOG("m_aglShell not set-up\n");
+		return nullptr;
+	}
 	m_aglShell->SetAppFullscreen(request->app_id());
 
 	grpc::ServerUnaryReactor* reactor = context->DefaultReactor();
@@ -151,6 +172,10 @@ GrpcServiceImpl::SetAppOnOutput(grpc::CallbackServerContext *context,
                             const ::agl_shell_ipc::AppOnOutputRequest* request,
                             ::agl_shell_ipc::AppOnOutputResponse* /* response */)
 {
+	if (!m_aglShell) {
+		LOG("m_aglShell not set-up\n");
+		return nullptr;
+	}
 	m_aglShell->SetAppOnOutput(request->app_id(), request->output());
 
 	grpc::ServerUnaryReactor* reactor = context->DefaultReactor();
@@ -163,6 +188,10 @@ GrpcServiceImpl::SetAppPosition(grpc::CallbackServerContext *context,
                             const ::agl_shell_ipc::AppPositionRequest* request,
                             ::agl_shell_ipc::AppPositionResponse* /* response */)
 {
+	if (!m_aglShell) {
+		LOG("m_aglShell not set-up\n");
+		return nullptr;
+	}
 	m_aglShell->SetAppPosition(request->app_id(), request->x(), request->y());
 
 	grpc::ServerUnaryReactor* reactor = context->DefaultReactor();
@@ -175,6 +204,10 @@ GrpcServiceImpl::SetAppScale(grpc::CallbackServerContext *context,
                             const ::agl_shell_ipc::AppScaleRequest* request,
                             ::agl_shell_ipc::AppScaleResponse* /* response */)
 {
+	if (!m_aglShell) {
+		LOG("m_aglShell not set-up\n");
+		return nullptr;
+	}
 	m_aglShell->SetAppScale(request->app_id(),
 				request->width(), request->height());
 
@@ -188,6 +221,10 @@ GrpcServiceImpl::SetAppSplit(grpc::CallbackServerContext *context,
            const ::agl_shell_ipc::SplitRequest* request,
            ::agl_shell_ipc::SplitResponse* /*response*/)
 {
+	if (!m_aglShell) {
+		LOG("m_aglShell not set-up\n");
+		return nullptr;
+	}
 	m_aglShell->SetAppSplit(request->app_id(), request->tile_orientation());
 
 	grpc::ServerUnaryReactor* reactor = context->DefaultReactor();
@@ -201,6 +238,11 @@ GrpcServiceImpl::GetOutputs(grpc::CallbackServerContext *context,
 	   ::agl_shell_ipc::ListOutputResponse* response)
 {
 	struct window_output *output;
+
+	if (!m_aglShell) {
+		LOG("m_aglShell not set-up\n");
+		return nullptr;
+	}
 
 	struct wl_list *list = &m_aglShell->m_shell_data->output_list;
 	wl_list_for_each(output, list, link) {
@@ -218,8 +260,13 @@ GrpcServiceImpl::AppStatusState(grpc::CallbackServerContext* context,
 				 const ::agl_shell_ipc::AppStateRequest* /*request */)
 {
 
-	Lister *n = new Lister(m_aglShell);
 
+	if (!m_aglShell) {
+		LOG(">> m_aglShell not set-up\n");
+		return nullptr;
+	}
+
+	Lister *n = new Lister(m_aglShell);
 	m_aglShell->m_shell_data->server_context_list.push_back(std::pair(context, n));
 	LOG("added lister %p\n", static_cast<void *>(n));
 

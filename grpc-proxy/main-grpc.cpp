@@ -542,8 +542,19 @@ err:
 }
 
 static void
-start_grpc_server(Shell *aglShell)
+start_grpc_server(std::shared_ptr<grpc::Server> server)
 {
+	LOG("gRPC server listening\n");
+	server->Wait();
+}
+
+int main(int argc, char **argv)
+{
+	(void) argc;
+	(void) argv;
+	Shell *aglShell = nullptr;
+	int ret = 0;
+
 	// instantiante the grpc server
 	std::string server_address(kDefaultGrpcServiceAddress);
 	GrpcServiceImpl service{aglShell};
@@ -555,18 +566,8 @@ start_grpc_server(Shell *aglShell)
 	builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
 	builder.RegisterService(&service);
 
-	std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
-	LOG("gRPC server listening on %s\n", server_address.c_str());
-
-	server->Wait();
-}
-
-int main(int argc, char **argv)
-{
-	(void) argc;
-	(void) argv;
-	Shell *aglShell;
-	int ret = 0;
+	std::shared_ptr<grpc::Server> server(builder.BuildAndStart());
+	std::thread thread(start_grpc_server, server);
 
 	// this blocks until we detect that another shell client started
 	// running
@@ -581,7 +582,8 @@ int main(int argc, char **argv)
 	std::shared_ptr<struct agl_shell> agl_shell{sh->shell, agl_shell_destroy};
 	aglShell = new Shell(agl_shell, sh);
 
-	std::thread thread(start_grpc_server, aglShell);
+	// now that we have aglShell, set it to the gRPC proxy as well
+	service.setAglShell(aglShell);
 
 	// serve wayland requests
 	while (running && ret != -1) {
