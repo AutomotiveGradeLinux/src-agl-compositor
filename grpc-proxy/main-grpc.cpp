@@ -129,7 +129,7 @@ agl_shell_app_on_output(void *data, struct agl_shell *agl_shell,
 	(void) data;
 	(void) app_id;
 
-	LOG("got app_on_output event app_id %s on output\n", app_id, output_name);
+	LOG("got app_on_output event app_id %s on output %s\n", app_id, output_name);
 }
 
 

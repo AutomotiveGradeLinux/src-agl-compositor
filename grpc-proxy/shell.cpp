@@ -112,7 +112,7 @@ Shell::SetAppOnOutput(const std::string &app_id, const std::string &output)
 	}
 
 	if (!w_output) {
-		LOG("Could not found output '%s' to set the application\n");
+		LOG("Could not found output '%s' to set the application\n", output.c_str());
 		return;
 	}
 
