@@ -578,6 +578,7 @@ int main(int argc, char **argv)
 		ret = wl_display_dispatch(sh->wl_display);
 	}
 
+	thread.join();
 	destroy_shell_data(sh);
 	return 0;
 }
