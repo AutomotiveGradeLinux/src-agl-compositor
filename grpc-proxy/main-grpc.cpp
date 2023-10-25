@@ -437,7 +437,7 @@ register_shell_init(void)
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 
 	ts.tv_sec = 0;
-	ts.tv_nsec = 250 * 1000 * 1000;	// 250 ms
+	ts.tv_nsec = 50 * 1000 * 1000;	// 50 ms
 
 	// verify if 'bound_fail' was received
 	while (true) {
