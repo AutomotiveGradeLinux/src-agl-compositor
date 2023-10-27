@@ -386,6 +386,9 @@ __register_shell_init(void)
 	struct shell_data_init *sh = new struct shell_data_init;
 
 	wl_display = wl_display_connect(NULL);
+	if (!wl_display) {
+		goto err;
+	}
 	registry = wl_display_get_registry(wl_display);
 	sh->wait_for_bound = true;
 	sh->bound_fail = false;
@@ -479,6 +482,10 @@ start_agl_shell_client(void)
 	wl_display = wl_display_connect(NULL);
 
 	struct shell_data *sh = new struct shell_data;
+
+	if (!wl_display) {
+		goto err;
+	}
 
 	sh->wl_display = wl_display;
 	sh->wait_for_doas = true;
