@@ -387,7 +387,8 @@ __register_shell_init(void)
 
 	wl_display = wl_display_connect(NULL);
 	if (!wl_display) {
-		goto err;
+		ret = -1;
+		goto err_failed_display;
 	}
 	registry = wl_display_get_registry(wl_display);
 	sh->wait_for_bound = true;
@@ -416,6 +417,8 @@ __register_shell_init(void)
 err:
 	wl_registry_destroy(registry);
 	wl_display_disconnect(wl_display);
+
+err_failed_display:
 	delete sh;
 	return ret;
 }
