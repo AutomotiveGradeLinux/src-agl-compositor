@@ -1622,9 +1622,8 @@ shell_set_app_output(struct wl_client *client, struct wl_resource *res,
 	struct weston_output *woutput = weston_head_get_output(head);
 	struct ivi_output *ioutput = to_ivi_output(woutput);
 	struct ivi_surface *surf = ivi_find_app(ivi, app_id);
-	struct ivi_output *desktop_last_output = surf->desktop.last_output;
-	struct ivi_output *current_completed_output =
-		surf->current_completed_output;
+	struct ivi_output *desktop_last_output;
+	struct ivi_output *current_completed_output;
 
 	if (!app_id || !ioutput)
 		return;
@@ -1635,6 +1634,9 @@ shell_set_app_output(struct wl_client *client, struct wl_resource *res,
 		shell_send_app_on_output(ivi, app_id, woutput->name);
 		return;
 	}
+
+	desktop_last_output = surf->desktop.last_output;
+	current_completed_output = surf->current_completed_output;
 
 	if (surf->remote.output)
 		surf->hidden_layer_output = surf->remote.output;
