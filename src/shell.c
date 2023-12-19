@@ -1108,8 +1108,8 @@ shell_ready(struct wl_client *client, struct wl_resource *shell_res)
 	    ivi->shell_client.status == BOUND_FAILED) {
 		wl_resource_post_error(shell_res,
 				       WL_DISPLAY_ERROR_INVALID_OBJECT,
-				       "agl_shell has already been bound. "
-				       "Check out bound_fail event");
+				       "agl_shell (ready quest) has already "
+				       "been bound. Check out bound_fail event");
 		return;
 	}
 
@@ -1165,8 +1165,8 @@ shell_set_background(struct wl_client *client,
 	    ivi->shell_client.resource_ext == shell_res) {
 		wl_resource_post_error(shell_res,
 				       WL_DISPLAY_ERROR_INVALID_OBJECT,
-				       "agl_shell has already been bound. "
-				       "Check out bound_fail event");
+				       "agl_shell (set_background) has already "
+				       "been bound. Check out bound_fail event");
 		return;
 	}
 
@@ -1230,7 +1230,7 @@ shell_set_panel(struct wl_client *client,
 	    ivi->shell_client.resource_ext == shell_res) {
 		wl_resource_post_error(shell_res,
 				       WL_DISPLAY_ERROR_INVALID_OBJECT,
-				       "agl_shell has already been bound. "
+				       "agl_shell (set_panel) has already been bound. "
 				       "Check out bound_fail event");
 		return;
 	}
@@ -1860,6 +1860,7 @@ unbind_agl_shell(struct wl_resource *resource)
 
 	ivi->shell_client.ready = false;
 	ivi->shell_client.resource = NULL;
+	ivi->shell_client.resource_ext = NULL;
 	ivi->shell_client.client = NULL;
 }
 
@@ -1869,6 +1870,7 @@ unbind_agl_shell_ext(struct wl_resource *resource)
 	struct ivi_compositor *ivi = wl_resource_get_user_data(resource);
 
 	ivi->shell_client_ext.resource = NULL;
+	ivi->shell_client.resource_ext = NULL;
 }
 
 static void
