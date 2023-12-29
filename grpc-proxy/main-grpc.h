@@ -38,6 +38,12 @@
 // forward declaration created in grpc-async-cb
 class Lister;
 
+struct global_data {
+	uint32_t id;
+	uint32_t version;
+	std::string interface_name;
+};
+
 struct shell_data {
 	struct wl_display *wl_display;
 	struct agl_shell *shell;
@@ -47,6 +53,7 @@ struct shell_data {
 	bool wait_for_doas;
 
 	bool bound_ok;
+	bool bound_fail;
 	bool doas_ok;
 
 	uint32_t version;
@@ -54,6 +61,7 @@ struct shell_data {
 
 	::agl_shell_ipc::AppStateResponse current_app_state;
 	std::list<std::pair<grpc::CallbackServerContext*, Lister *> > server_context_list;
+	std::list<global_data> globals;
 };
 
 struct window_output {

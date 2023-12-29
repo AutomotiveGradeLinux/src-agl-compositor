@@ -97,6 +97,7 @@ struct ivi_compositor {
 		struct wl_client *client;
 		struct wl_resource *resource;
 		bool doas_requested;
+		bool doas_requested_pending_bind;
 		enum agl_shell_bound_status status;
 	} shell_client_ext;
 

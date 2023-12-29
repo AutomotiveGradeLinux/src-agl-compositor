@@ -1698,6 +1698,9 @@ shell_set_app_scale(struct wl_client *client, struct wl_resource *res,
 static void
 shell_ext_destroy(struct wl_client *client, struct wl_resource *res)
 {
+	struct 	ivi_compositor *ivi = wl_resource_get_user_data(res);
+
+	ivi->shell_client_ext.doas_requested = false;
 	wl_resource_destroy(res);
 }
 
@@ -1707,8 +1710,17 @@ shell_ext_doas(struct wl_client *client, struct wl_resource *res)
 	struct 	ivi_compositor *ivi = wl_resource_get_user_data(res);
 
 	ivi->shell_client_ext.doas_requested = true;
-	agl_shell_ext_send_doas_done(ivi->shell_client_ext.resource,
-				     AGL_SHELL_EXT_DOAS_SHELL_CLIENT_STATUS_SUCCESS);
+
+	if (ivi->shell_client_ext.resource && ivi->shell_client.resource) {
+		ivi->shell_client_ext.doas_requested_pending_bind = true;
+
+		agl_shell_ext_send_doas_done(ivi->shell_client_ext.resource,
+					     AGL_SHELL_EXT_DOAS_SHELL_CLIENT_STATUS_SUCCESS);
+	} else {
+		agl_shell_ext_send_doas_done(ivi->shell_client_ext.resource,
+					     AGL_SHELL_EXT_DOAS_SHELL_CLIENT_STATUS_FAILED);
+	}
+
 }
 
 static const struct agl_shell_interface agl_shell_implementation = {
@@ -1871,6 +1883,7 @@ unbind_agl_shell_ext(struct wl_resource *resource)
 
 	ivi->shell_client_ext.resource = NULL;
 	ivi->shell_client.resource_ext = NULL;
+	ivi->shell_client_ext.doas_requested = false;
 }
 
 static void
@@ -1897,54 +1910,55 @@ bind_agl_shell(struct wl_client *client,
 		return;
 	}
 
-	if (ivi->shell_client.resource) {
-		if (wl_resource_get_version(resource) == 1) {
-			wl_resource_post_error(resource, WL_DISPLAY_ERROR_INVALID_OBJECT,
-					       "agl_shell has already been bound");
+	if (ivi->shell_client.resource && wl_resource_get_version(resource) == 1) {
+		wl_resource_post_error(resource, WL_DISPLAY_ERROR_INVALID_OBJECT,
+				"agl_shell has already been bound (version 1)");
+		wl_resource_destroy(resource);
+		return;
+	}
+
+	// for agl_shell client proxy
+	if (ivi->shell_client.resource &&
+	    ivi->shell_client_ext.doas_requested_pending_bind) {
+
+		ivi->shell_client_ext.doas_requested_pending_bind = false;
+
+		// if there's one connected
+		if (ivi->shell_client.resource_ext) {
+			ivi->shell_client_ext.status = BOUND_FAILED;
+			agl_shell_send_bound_fail(ivi->shell_client.resource_ext);
+			wl_resource_destroy(resource);
 			return;
 		}
 
-		if (ivi->shell_client_ext.resource && 
-		    ivi->shell_client_ext.doas_requested) {
-
-			/* reset status in case client-ext doesn't send an
-			 * explicit agl_shell_destroy request, see
-			 * shell_destroy() */
-			if (ivi->shell_client.status == BOUND_FAILED)
-				ivi->shell_client.status = BOUND_OK;
-
-			wl_resource_set_implementation(resource, &agl_shell_implementation,
-						       ivi, NULL);
-			ivi->shell_client.resource_ext = resource;
-
-			ivi->shell_client_ext.status = BOUND_OK;
-			agl_shell_send_bound_ok(ivi->shell_client.resource_ext);
-
-			return;
-		} else {
-			wl_resource_set_implementation(resource, &agl_shell_implementation,
-						       ivi, NULL);
-			agl_shell_send_bound_fail(resource);
-			ivi->shell_client.status = BOUND_FAILED;
-			return;
-		}
+		wl_resource_set_implementation(resource, &agl_shell_implementation,
+					       ivi, NULL);
+		ivi->shell_client.resource_ext = resource;
+		ivi->shell_client_ext.status = BOUND_OK;
+		agl_shell_send_bound_ok(ivi->shell_client.resource_ext);
+		return;
 	}
 
 
+	// if we already have an agl_shell client
+	if (ivi->shell_client.resource) {
+		agl_shell_send_bound_fail(resource);
+		ivi->shell_client.status = BOUND_FAILED;
+		wl_resource_destroy(resource);
+		return;
+	}
+
+	// default agl_shell client
+	wl_resource_set_implementation(resource, &agl_shell_implementation,
+				       ivi, unbind_agl_shell);
+	ivi->shell_client.resource = resource;
+
 	if (wl_resource_get_version(resource) >=
 	    AGL_SHELL_BOUND_OK_SINCE_VERSION) {
-		wl_resource_set_implementation(resource, &agl_shell_implementation,
-					       ivi, unbind_agl_shell);
-		ivi->shell_client.resource = resource;
 		/* if we land here we'll have BOUND_OK by default,
 		   but still do the assignment */
 		ivi->shell_client.status = BOUND_OK;
 		agl_shell_send_bound_ok(ivi->shell_client.resource);
-	} else {
-		/* fallback for just version 1 of the protocol */
-		wl_resource_set_implementation(resource, &agl_shell_implementation,
-					       ivi, unbind_agl_shell);
-		ivi->shell_client.resource = resource;
 	}
 }
 

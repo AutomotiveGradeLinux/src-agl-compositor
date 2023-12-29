@@ -29,6 +29,7 @@
 #include <queue>
 #include <thread>
 #include <mutex>
+#include <chrono>
 #include <condition_variable>
 
 #include "shell.h"
@@ -36,37 +37,9 @@
 #include "main-grpc.h"
 #include "grpc-async-cb.h"
 
-struct shell_data_init {
-	struct agl_shell *shell;
-	bool wait_for_bound;
-	bool bound_ok;
-	bool bound_fail;
-	int version;
-};
+using namespace std::chrono_literals;
 
 static int running = 1;
-
-static void
-agl_shell_bound_ok_init(void *data, struct agl_shell *agl_shell)
-{
-	(void) agl_shell;
-
-	struct shell_data_init *sh = static_cast<struct shell_data_init *>(data);
-	sh->wait_for_bound = false;
-
-	sh->bound_ok = true;
-}
-
-static void
-agl_shell_bound_fail_init(void *data, struct agl_shell *agl_shell)
-{
-	(void) agl_shell;
-
-	struct shell_data_init *sh = static_cast<struct shell_data_init *>(data);
-	sh->wait_for_bound = false;
-
-	sh->bound_fail = true;
-}
 
 static void
 agl_shell_bound_ok(void *data, struct agl_shell *agl_shell)
@@ -76,6 +49,7 @@ agl_shell_bound_ok(void *data, struct agl_shell *agl_shell)
 	struct shell_data *sh = static_cast<struct shell_data *>(data);
 	sh->wait_for_bound = false;
 
+	LOG("bound_ok event!\n");
 	sh->bound_ok = true;
 }
 
@@ -87,7 +61,9 @@ agl_shell_bound_fail(void *data, struct agl_shell *agl_shell)
 	struct shell_data *sh = static_cast<struct shell_data *>(data);
 	sh->wait_for_bound = false;
 
+	LOG("bound_fail event!\n");
 	sh->bound_ok = false;
+	sh->bound_fail = true;
 }
 
 static void
@@ -140,13 +116,6 @@ static const struct agl_shell_listener shell_listener = {
 	agl_shell_app_on_output,
 };
 
-static const struct agl_shell_listener shell_listener_init = {
-	agl_shell_bound_ok_init,
-	agl_shell_bound_fail_init,
-	nullptr,
-	nullptr,
-};
-
 static void
 agl_shell_ext_doas_done(void *data, struct agl_shell_ext *agl_shell_ext, uint32_t status)
 {
@@ -155,8 +124,10 @@ agl_shell_ext_doas_done(void *data, struct agl_shell_ext *agl_shell_ext, uint32_
 	struct shell_data *sh = static_cast<struct shell_data *>(data);
 	sh->wait_for_doas = false;
 
-	if (status == AGL_SHELL_EXT_DOAS_SHELL_CLIENT_STATUS_SUCCESS)
+	if (status == AGL_SHELL_EXT_DOAS_SHELL_CLIENT_STATUS_SUCCESS) {
+		LOG("got doas_ok true!\n");
 		sh->doas_ok = true;
+	}
 }
 
 static const struct agl_shell_ext_listener shell_ext_listener = {
@@ -270,60 +241,19 @@ global_add(void *data, struct wl_registry *reg, uint32_t id,
 	if (!sh)
 		return;
 
+	struct global_data gb;
+
+	gb.version = version;
+	gb.id = id;
+	gb.interface_name = std::string(interface);
+	sh->globals.push_back(gb);
+
 	if (strcmp(interface, agl_shell_interface.name) == 0) {
-		// bind to at least v3 to get events
-		sh->shell =
-			static_cast<struct agl_shell *>(wl_registry_bind(reg, id,
-				&agl_shell_interface,
-				std::min(static_cast<uint32_t>(10), version)));
-		agl_shell_add_listener(sh->shell, &shell_listener, data);
-		sh->version = version;
+		// nothing here, we're just going to bind a bit later after we
+		// got doas_ok event
 	} else if (strcmp(interface, "wl_output") == 0) {
                 display_add_output(sh, reg, id, version);
-        }
-}
-
-// the purpose of this _init is to make sure we're not the first shell client
-// running to allow the 'main' shell client take over.
-static void
-global_add_init(void *data, struct wl_registry *reg, uint32_t id,
-		const char *interface, uint32_t version)
-{
-
-	struct shell_data_init *sh = static_cast<struct shell_data_init *>(data);
-
-	if (!sh)
-		return;
-
-	if (strcmp(interface, agl_shell_interface.name) == 0) {
-		sh->shell =
-			static_cast<struct agl_shell *>(wl_registry_bind(reg, id,
-				&agl_shell_interface,
-				std::min(static_cast<uint32_t>(10), version)));
-		agl_shell_add_listener(sh->shell, &shell_listener_init, data);
-		sh->version = version;
-	}
-}
-
-static void
-global_remove(void *data, struct wl_registry *reg, uint32_t id)
-{
-	/* Don't care */
-	(void) data;
-	(void) reg;
-	(void) id;
-}
-
-static void
-global_add_ext(void *data, struct wl_registry *reg, uint32_t id,
-		const char *interface, uint32_t version)
-{
-	struct shell_data *sh = static_cast<struct shell_data *>(data);
-
-	if (!sh)
-		return;
-
-	if (strcmp(interface, agl_shell_ext_interface.name) == 0) {
+        } else if (strcmp(interface, agl_shell_ext_interface.name) == 0) {
 		sh->shell_ext =
 			static_cast<struct agl_shell_ext *>(wl_registry_bind(reg, id,
 				&agl_shell_ext_interface,
@@ -333,196 +263,112 @@ global_add_ext(void *data, struct wl_registry *reg, uint32_t id,
 	}
 }
 
-static const struct wl_registry_listener registry_ext_listener = {
-	global_add_ext,
-	global_remove,
-};
+static void
+global_remove(void *data, struct wl_registry *reg, uint32_t id)
+{
+	struct shell_data *sh = static_cast<struct shell_data *>(data);
+	/* Don't care */
+	(void) reg;
+	(void) id;
+
+	for (std::list<global_data>::iterator it = sh->globals.begin();
+			it != sh->globals.end(); it++) {
+		sh->globals.erase(it);
+	}
+}
 
 static const struct wl_registry_listener registry_listener = {
 	global_add,
 	global_remove,
 };
 
-static const struct wl_registry_listener registry_listener_init = {
-	global_add_init,
-	global_remove,
-};
-
-static void
-register_shell_ext(struct wl_display *wl_display, struct shell_data *sh)
-{
-	struct wl_registry *registry;
-
-	registry = wl_display_get_registry(wl_display);
-
-	wl_registry_add_listener(registry, &registry_ext_listener, sh);
-
-	wl_display_roundtrip(wl_display);
-	wl_registry_destroy(registry);
-}
-
-static void
-register_shell(struct wl_display *wl_display, struct shell_data *sh)
-{
-	struct wl_registry *registry;
-
-	wl_list_init(&sh->output_list);
-
-	registry = wl_display_get_registry(wl_display);
-
-	wl_registry_add_listener(registry, &registry_listener, sh);
-
-	wl_display_roundtrip(wl_display);
-	wl_registry_destroy(registry);
-}
-
-static int
-__register_shell_init(void)
-{
-	int ret = 0;
-	struct wl_registry *registry;
-	struct wl_display *wl_display;
-
-	struct shell_data_init *sh = new struct shell_data_init;
-
-	wl_display = wl_display_connect(NULL);
-	if (!wl_display) {
-		ret = -1;
-		goto err_failed_display;
-	}
-	registry = wl_display_get_registry(wl_display);
-	sh->wait_for_bound = true;
-	sh->bound_fail = false;
-	sh->bound_ok = false;
-
-	wl_registry_add_listener(registry, &registry_listener_init, sh);
-	wl_display_roundtrip(wl_display);
-
-	if (!sh->shell || sh->version < 3) {
-		ret = -1;
-		goto err;
-	}
-
-	while (ret !=- 1 && sh->wait_for_bound) {
-		ret = wl_display_dispatch(wl_display);
-
-		if (sh->wait_for_bound)
-			continue;
-	}
-
-	ret = sh->bound_fail;
-
-	agl_shell_destroy(sh->shell);
-	wl_display_flush(wl_display);
-err:
-	wl_registry_destroy(registry);
-	wl_display_disconnect(wl_display);
-
-err_failed_display:
-	delete sh;
-	return ret;
-}
 
 // we expect this client to be up & running *after* the shell client has
 // already set-up panels/backgrounds.
-// this means the very first try to bind to agl_shell we wait for
-// 'bound_fail' event, which would tell us when it's ok to attempt to
-// bind agl_shell_ext, call doas request, then attempt to bind (one
-// more time) to agl_shell but this time wait for 'bound_ok' event.
-void
-register_shell_init(void)
+//
+// this means we need to wait for doas_done event with doas_shell_client_status
+// set to sucess.
+struct shell_data *
+register_shell_ext(void)
 {
-	struct timespec ts = {};
-
-	clock_gettime(CLOCK_MONOTONIC, &ts);
-
-	ts.tv_sec = 0;
-	ts.tv_nsec = 50 * 1000 * 1000;	// 50 ms
-
-	// verify if 'bound_fail' was received
-	while (true) {
-
-		int r = __register_shell_init();
-
-		if (r < 0) {
-			LOG("agl-shell extension not found or version too low\n");
-			exit(EXIT_FAILURE);
-		} else if (r == 1) {
-			// we need to get a 'bound_fail' event, if we get a 'bound_ok'
-			// it means we're the first shell to start so wait until the
-			// shell client actually started
-			LOG("Found another shell client running. "
-			     "Going further to bind to the agl_shell_ext interface\n");
-			break;
-		}
-
-		LOG("No shell client detected running. Will wait until one starts up...\n");
-		nanosleep(&ts, NULL);
-	}
-
-}
-
-static void
-destroy_shell_data(struct shell_data *sh)
-{
-        struct window_output *w_output, *w_output_next;
-
-        wl_list_for_each_safe(w_output, w_output_next, &sh->output_list, link)
-                destroy_output(w_output);
-
-        wl_display_flush(sh->wl_display);
-        wl_display_disconnect(sh->wl_display);
-
-	delete sh;
-}
-
-static struct shell_data *
-start_agl_shell_client(void)
-{
+	// try first to bind to agl_shell_ext
 	int ret = 0;
-	struct wl_display *wl_display;
-
-	wl_display = wl_display_connect(NULL);
+	struct wl_registry *registry;
 
 	struct shell_data *sh = new struct shell_data;
 
-	if (!wl_display) {
+	sh->wl_display = wl_display_connect(NULL);
+	if (!sh->wl_display) {
 		goto err;
 	}
 
-	sh->wl_display = wl_display;
-	sh->wait_for_doas = true;
+	registry = wl_display_get_registry(sh->wl_display);
+
 	sh->wait_for_bound = true;
+	sh->wait_for_doas = true;
 
-	register_shell_ext(wl_display, sh);
+	sh->bound_fail = false;
+	sh->bound_ok = false;
 
-	// check for agl_shell_ext
+	sh->doas_ok = false;
+	wl_list_init(&sh->output_list);
+
+	wl_registry_add_listener(registry, &registry_listener, sh);
+	wl_display_roundtrip(sh->wl_display);
+
 	if (!sh->shell_ext) {
-		LOG("Failed to bind to agl_shell_ext interface\n");
+		LOG("agl_shell_ext interface was not found!\n");
 		goto err;
 	}
 
-	if (wl_list_empty(&sh->output_list)) {
-		LOG("Failed get any outputs!\n");
-		goto err;
-	}
+	do {
+		// this should loop until we get back an doas_ok event
+		agl_shell_ext_doas_shell_client(sh->shell_ext);
 
-	agl_shell_ext_doas_shell_client(sh->shell_ext);
-	while (ret != -1 && sh->wait_for_doas) {
-		ret = wl_display_dispatch(sh->wl_display);
-		if (sh->wait_for_doas)
-			continue;
-	}
+		while (ret !=- 1 && sh->wait_for_doas) {
+			ret = wl_display_dispatch(sh->wl_display);
+
+			if (sh->wait_for_doas)
+				continue;
+		}
+
+		if (sh->doas_ok) {
+			break;
+		}
+
+		std::this_thread::sleep_for(250ms);
+		sh->wait_for_doas = true;
+	} while (!sh->doas_ok);
 
 	if (!sh->doas_ok) {
-		LOG("Failed to get doas_done event\n");
+		LOG("agl_shell_ext: failed to get doas_ok status\n");
 		goto err;
 	}
 
-	// bind to agl-shell
-	register_shell(wl_display, sh);
+
+	// search for the globals to get id and version
+	for (std::list<global_data>::iterator it = sh->globals.begin();
+			it != sh->globals.end(); it++) {
+		if (it->interface_name == "agl_shell") {
+			sh->shell =
+				static_cast<struct agl_shell *>(wl_registry_bind(registry, it->id,
+					&agl_shell_interface, std::min(static_cast<uint32_t>(10),
+						it->version))
+				);
+			agl_shell_add_listener(sh->shell, &shell_listener, sh);
+			break;
+		}
+	}
+
+	if (!sh->shell) {
+		LOG("agl_shell was not advertised!\n");
+		goto err;
+	}
+
+	// wait to bound now
 	while (ret != -1 && sh->wait_for_bound) {
 		ret = wl_display_dispatch(sh->wl_display);
+
 		if (sh->wait_for_bound)
 			continue;
 	}
@@ -533,12 +379,30 @@ start_agl_shell_client(void)
 		goto err;
 	}
 
-	LOG("agl_shell/agl_shell_ext interface OK\n");
-
+	LOG("agl_shell/agl_shell_ext interfaces OK\n");
 	return sh;
 err:
+	LOG("agl_shell/agl_shell_ext interfaces NOK\n");
+	return NULL;
+}
+
+static void
+destroy_shell_data(struct shell_data *sh)
+{
+        struct window_output *w_output, *w_output_next;
+
+        wl_list_for_each_safe(w_output, w_output_next, &sh->output_list, link)
+                destroy_output(w_output);
+
+       for (std::list<global_data>::iterator it = sh->globals.begin();
+		       it != sh->globals.end(); it++) {
+	       sh->globals.erase(it);
+       }
+
+        wl_display_flush(sh->wl_display);
+        wl_display_disconnect(sh->wl_display);
+
 	delete sh;
-	return nullptr;
 }
 
 static void
@@ -571,11 +435,10 @@ int main(int argc, char **argv)
 
 	// this blocks until we detect that another shell client started
 	// running
-	register_shell_init();
-
-	struct shell_data *sh = start_agl_shell_client();
+	struct shell_data *sh = register_shell_ext();
 	if (!sh) {
-		LOG("Failed to initialize agl-shell/agl-shell-ext\n");
+		LOG("Failed to get register ag_shell_ext\n");
+		thread.join();
 		exit(EXIT_FAILURE);
 	}
 
