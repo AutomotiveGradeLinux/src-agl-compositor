@@ -730,6 +730,7 @@ ivi_layout_fullscreen_committed(struct ivi_surface *surface)
 			   ivi_layout_get_surface_role_name(surface),
 			   output->name);
 
+		weston_compositor_schedule_repaint(ivi->compositor);
 	}
 }
 
@@ -974,6 +975,32 @@ ivi_layout_popup_re_add(struct ivi_surface *surface)
 	ivi_layout_popup_committed(surface);
 }
 
+static void
+ivi_layout_fullscreen_re_add(struct ivi_surface *surface)
+{
+	assert(surface->role == IVI_SURFACE_ROLE_FULLSCREEN);
+	struct weston_view *view = surface->view;
+
+	if (weston_view_is_mapped(view)) {
+		struct weston_desktop_surface *dsurface = surface->dsurface;
+		struct weston_surface *wsurface =
+			weston_desktop_surface_get_surface(dsurface);
+
+		weston_layer_entry_remove(&view->layer_link);
+
+		wsurface->is_mapped = false;
+		view->is_mapped = false;
+	}
+
+	/* reset the activate by default in order to (still) allow the surface
+	 * to be activaved using the request */
+	if (!surface->mapped)
+		surface->mapped = true;
+
+	surface->state = NORMAL;
+	ivi_layout_fullscreen_committed(surface);
+}
+
 static bool
 ivi_layout_surface_is_split_or_fullscreen(struct ivi_surface *surf)
 {
@@ -1024,6 +1051,11 @@ ivi_layout_activate_by_surf(struct ivi_output *output, struct ivi_surface *surf)
 
 	if (surf->role == IVI_SURFACE_ROLE_POPUP) {
 		ivi_layout_popup_re_add(surf);
+		return;
+	}
+
+	if (surf->role == IVI_SURFACE_ROLE_FULLSCREEN) {
+		ivi_layout_fullscreen_re_add(surf);
 		return;
 	}
 
@@ -1177,7 +1209,8 @@ ivi_layout_deactivate(struct ivi_compositor *ivi, const char *app_id)
 				weston_desktop_surface_get_app_id(dsurface);
 			ivi_layout_activate(ivi_output, previous_active_app_id);
 		}
-	} else if (surf->role == IVI_SURFACE_ROLE_POPUP) {
+	} else if (surf->role == IVI_SURFACE_ROLE_POPUP ||
+		   surf->role == IVI_SURFACE_ROLE_FULLSCREEN) {
 		struct weston_view *view  = surf->view;
 
 		weston_view_unmap(view);
@@ -1188,5 +1221,5 @@ ivi_layout_deactivate(struct ivi_compositor *ivi, const char *app_id)
 		weston_surface_damage(view->surface);
 	}
 
-      shell_send_app_state(ivi, app_id, AGL_SHELL_APP_STATE_DEACTIVATED);
+	shell_send_app_state(ivi, app_id, AGL_SHELL_APP_STATE_DEACTIVATED);
 }
