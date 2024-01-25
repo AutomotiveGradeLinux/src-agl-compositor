@@ -312,6 +312,7 @@ desktop_surface_removed(struct weston_desktop_surface *dsurface, void *userdata)
 		output->area = output->area_saved;
 	}
 
+
 	/* reset the active surface as well */
 	if (output && output->active && output->active == surface) {
 		output->active->view->is_mapped = false;
@@ -340,6 +341,14 @@ desktop_surface_removed(struct weston_desktop_surface *dsurface, void *userdata)
 	if (weston_surface_is_mapped(wsurface)) {
 		weston_desktop_surface_unlink_view(surface->view);
 		weston_view_destroy(surface->view);
+	}
+
+	if (surface->role == IVI_SURFACE_ROLE_TILE) {
+		ivi_layout_reset_split_surfaces(surface->ivi);
+		// activate previous when resizing back to give input set
+		// output active for allowing to resizing again if needed
+		if (output->previous_active)
+			ivi_layout_activate_by_surf(output, output->previous_active);
 	}
 
 	/* invalidate agl-shell surfaces so we can re-use them when

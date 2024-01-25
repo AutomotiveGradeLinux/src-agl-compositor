@@ -117,6 +117,8 @@ struct ivi_compositor {
 	struct wl_list split_pending_apps;
 	struct wl_list remote_pending_apps;
 
+	struct wl_list pending_apps;	/** pending_app::link */
+
 	struct wl_listener destroy_listener;
 	struct wl_listener transform_listener;
 	const struct weston_xwayland_surface_api *xwayland_surface_api;
@@ -194,6 +196,7 @@ enum ivi_surface_role {
 	IVI_SURFACE_ROLE_SPLIT_V,
 	IVI_SURFACE_ROLE_SPLIT_H,
 	IVI_SURFACE_ROLE_REMOTE,
+	IVI_SURFACE_ROLE_TILE,
 };
 
 struct ivi_bounding_box {
@@ -227,6 +230,18 @@ struct pending_remote {
 	struct ivi_output *ioutput;
 	char *app_id;
 	struct wl_list link;    /** ivi_compositor::remote_pending_apps */
+};
+
+struct pending_app {
+	struct ivi_output *ioutput;
+	enum ivi_surface_role role;
+	char *app_id;
+	struct wl_list link;	/** ivi_compositor::pending_apps */
+};
+
+struct pending_app_tile {
+	struct pending_app base;
+	uint32_t orientation;
 };
 
 struct ivi_desktop_surface {
@@ -278,6 +293,7 @@ struct ivi_surface {
 
 	struct wl_list link;
 	int focus_count;
+	uint32_t orientation;
 
 	struct {
 		enum ivi_surface_flags flags;
@@ -521,5 +537,8 @@ parse_activation_area(const char *geometry, struct ivi_output *output);
 
 bool
 is_shell_surface_xwayland(struct ivi_surface *surf);
+
+void
+ivi_layout_reset_split_surfaces(struct ivi_compositor *ivi);
 
 #endif

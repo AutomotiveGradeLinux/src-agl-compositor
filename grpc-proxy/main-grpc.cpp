@@ -352,7 +352,7 @@ register_shell_ext(void)
 		if (it->interface_name == "agl_shell") {
 			sh->shell =
 				static_cast<struct agl_shell *>(wl_registry_bind(registry, it->id,
-					&agl_shell_interface, std::min(static_cast<uint32_t>(10),
+					&agl_shell_interface, std::min(static_cast<uint32_t>(11),
 						it->version))
 				);
 			agl_shell_add_listener(sh->shell, &shell_listener, sh);
