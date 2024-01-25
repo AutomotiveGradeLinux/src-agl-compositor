@@ -40,7 +40,7 @@ public:
 		m_shell(shell), m_shell_data(sh_data) { }
 	void ActivateApp(const std::string &app_id, const std::string &output_name);
 	void DeactivateApp(const std::string &app_id);
-	void SetAppSplit(const std::string &app_id, uint32_t orientation);
+	void SetAppSplit(const std::string &app_id, uint32_t orientation, const std::string &output_name);
 	void SetAppFloat(const std::string &app_id,
 			 int32_t x_pos, int32_t y_pos);
 	void SetAppNormal(const std::string &app_id);
