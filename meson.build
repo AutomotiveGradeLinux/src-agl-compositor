@@ -11,7 +11,7 @@ project('agl-compositor',
 )
 
 config_h = configuration_data()
-libweston_version = 'libweston-12'
+libweston_version = 'libweston-13'
 pkgconfig = import('pkgconfig')
 fs = import('fs')
 
