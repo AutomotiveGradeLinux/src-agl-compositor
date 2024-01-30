@@ -49,10 +49,6 @@
 static void
 create_black_curtain_view(struct ivi_output *output);
 
-static void
-_ivi_set_shell_surface_split(struct ivi_surface *surface, struct ivi_output *output,
-			     uint32_t orientation, bool to_activate);
-
 static uint32_t
 reverse_orientation(uint32_t orientation);
 
@@ -1792,7 +1788,7 @@ reverse_orientation(uint32_t orientation)
 	}
 }
 
-static void
+void
 _ivi_set_shell_surface_split(struct ivi_surface *surface, struct ivi_output *ioutput,
 			     uint32_t orientation, bool to_activate)
 {

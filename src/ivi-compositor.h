@@ -541,4 +541,8 @@ is_shell_surface_xwayland(struct ivi_surface *surf);
 void
 ivi_layout_reset_split_surfaces(struct ivi_compositor *ivi);
 
+void
+_ivi_set_shell_surface_split(struct ivi_surface *surface, struct ivi_output *output,
+			     uint32_t orientation, bool to_activate);
+
 #endif

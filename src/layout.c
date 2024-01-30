@@ -1036,16 +1036,47 @@ void
 ivi_layout_reset_split_surfaces(struct ivi_compositor *ivi)
 {
 	struct ivi_surface *ivisurf;
+	bool found_split_surface = false;
+	struct ivi_output *output = NULL;
 
 	wl_list_for_each(ivisurf, &ivi->surfaces, link) {
-		struct weston_desktop_surface *dsurf = ivisurf->dsurface;
-
 		if (ivisurf->orientation != AGL_SHELL_TILE_ORIENTATION_NONE) {
-			weston_log("%s() resetting apps to none orientation\n", __func__);
-			ivisurf->orientation = AGL_SHELL_TILE_ORIENTATION_NONE;
-			weston_desktop_surface_set_orientation(dsurf, ivisurf->orientation);
+			found_split_surface = true;
+			break;
 		}
 	}
+
+	if (!found_split_surface)
+		return;
+
+	output = ivisurf->current_completed_output;
+	if (output->previous_active) {
+		struct weston_view *ev = output->previous_active->view;
+		struct weston_output *woutput = output->output;
+
+		if (!weston_view_is_mapped(ev))
+			weston_view_update_transform(ev);
+		else
+			weston_layer_entry_remove(&ev->layer_link);
+
+		ev->is_mapped = true;
+		ev->surface->is_mapped = true;
+		output->previous_active->mapped = true;
+
+		weston_view_set_output(ev, woutput);
+
+		weston_layer_entry_insert(&ivi->normal.view_list, &ev->layer_link);
+
+		_ivi_set_shell_surface_split(output->previous_active, NULL,
+					     AGL_SHELL_TILE_ORIENTATION_NONE, false);
+
+		if (output->active == ivisurf) {
+			output->active = output->previous_active;
+		}
+	}
+
+	_ivi_set_shell_surface_split(ivisurf, NULL,
+				     AGL_SHELL_TILE_ORIENTATION_NONE, false);
 }
 
 void
