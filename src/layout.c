@@ -1091,10 +1091,14 @@ ivi_layout_activate_by_surf(struct ivi_output *output, struct ivi_surface *surf)
 #endif
 
 	/* do not 're'-activate surfaces that are split or active */
-	if (surf == output->active ||
-	    ivi_layout_surface_is_split_or_fullscreen(surf) ||
-	    surf->role != IVI_SURFACE_ROLE_DESKTOP) {
+	if (surf == output->active) {
 		weston_log("Application %s is already active on output %s\n",
+				app_id, output->output->name);
+		return;
+	}
+
+	if (ivi_layout_surface_is_split_or_fullscreen(surf)) {
+		weston_log("Application %s is fullscreen or split on output %s\n",
 				app_id, output->output->name);
 		return;
 	}
