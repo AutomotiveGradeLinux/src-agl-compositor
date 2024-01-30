@@ -1947,6 +1947,11 @@ void shell_set_app_split(struct wl_client *client, struct wl_resource *res,
 
 		_ivi_set_shell_surface_split(output->previous_active, NULL,
 					     reverse_orientation(orientation), false);
+
+		if (orientation == AGL_SHELL_TILE_ORIENTATION_NONE &&
+		    output->active == surf) {
+			output->active = output->previous_active;
+		}
 	}
 
 	_ivi_set_shell_surface_split(surf, NULL, orientation, false);
