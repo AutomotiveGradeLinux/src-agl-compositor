@@ -392,7 +392,7 @@ skip_output_asignment:
 
 static void
 desktop_committed(struct weston_desktop_surface *dsurface, 
-		  int32_t sx, int32_t sy, void *userdata)
+		  struct weston_coord_surface buf_offset, void *userdata)
 {
 	struct ivi_compositor *ivi = userdata;
 	struct ivi_surface *surface =
@@ -470,7 +470,7 @@ desktop_committed(struct weston_desktop_surface *dsurface,
 
 static void
 desktop_show_window_menu(struct weston_desktop_surface *dsurface,
-			 struct weston_seat *seat, int32_t x, int32_t y,
+			 struct weston_seat *seat, struct weston_coord_surface offset,
 			 void *userdata)
 {
 	/* not supported */
@@ -522,13 +522,13 @@ desktop_minimized_requested(struct weston_desktop_surface *dsurface,
 
 static void
 desktop_set_xwayland_position(struct weston_desktop_surface *dsurface,
-			      int32_t x, int32_t y, void *userdata)
+			      struct weston_coord_global pos, void *userdata)
 {
 	struct ivi_surface *ivisurf =
 		weston_desktop_surface_get_user_data(dsurface);
 
-	ivisurf->xwayland.x = x;
-	ivisurf->xwayland.y = y;
+	ivisurf->xwayland.x = pos.c.x;
+	ivisurf->xwayland.y = pos.c.y;
 	ivisurf->xwayland.is_set = true;
 }
 

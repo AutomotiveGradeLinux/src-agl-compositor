@@ -80,10 +80,10 @@ ivi_background_init(struct ivi_compositor *ivi, struct ivi_output *output)
 	view = bg->view;
 
 	weston_view_set_output(view, woutput);
-	weston_view_set_position(view, woutput->x, woutput->y);
+	weston_view_set_position(view, woutput->pos);
 
-	weston_log("(background) position view %p, x %d, y %d, on output %s\n", view,
-			woutput->x, woutput->y, output->name);
+	weston_log("(background) position view %p, x %f, y %f, on output %s\n", view,
+			woutput->pos.c.x, woutput->pos.c.y, output->name);
 
 	view->is_mapped = true;
 	view->surface->is_mapped = true;
@@ -99,8 +99,7 @@ ivi_panel_init(struct ivi_compositor *ivi, struct ivi_output *output,
 	struct weston_desktop_surface *dsurface;
 	struct weston_view *view;
 	struct weston_geometry geom;
-	int x = woutput->x;
-	int y = woutput->y;
+	struct weston_coord_global pos = woutput->pos;
 
 	if (!panel)
 		return;
@@ -119,7 +118,7 @@ ivi_panel_init(struct ivi_compositor *ivi, struct ivi_output *output,
 		output->area.height -= geom.height;
 		break;
 	case AGL_SHELL_EDGE_BOTTOM:
-		y += woutput->height - geom.height;
+		pos.c.y += woutput->height - geom.height;
 		output->area.height -= geom.height;
 		break;
 	case AGL_SHELL_EDGE_LEFT:
@@ -127,19 +126,19 @@ ivi_panel_init(struct ivi_compositor *ivi, struct ivi_output *output,
 		output->area.width -= geom.width;
 		break;
 	case AGL_SHELL_EDGE_RIGHT:
-		x += woutput->width - geom.width;
+		pos.c.x += woutput->width - geom.width;
 		output->area.width -= geom.width;
 		break;
 	}
 
-	x -= geom.x;
-	y -= geom.y;
+	pos.c.x -= geom.x;
+	pos.c.y -= geom.y;
 
 	weston_view_set_output(view, woutput);
-	weston_view_set_position(view, x, y);
+	weston_view_set_position(view, pos);
 
-	weston_log("(panel) edge %d position view %p, x %d, y %d\n",
-			panel->panel.edge, view, x, y);
+	weston_log("(panel) edge %d position view %p, x %f, y %f\n",
+			panel->panel.edge, view, pos.c.x, pos.c.y);
 
 	view->is_mapped = true;
 	view->surface->is_mapped = true;
@@ -247,6 +246,7 @@ ivi_layout_activate_complete(struct ivi_output *output,
 	struct ivi_shell_seat *ivi_seat = get_ivi_shell_seat(wseat);
 	const char *app_id = weston_desktop_surface_get_app_id(surf->dsurface);
 	bool update_previous = true;
+	struct weston_coord_global pos;
 
 	if (weston_view_is_mapped(view)) {
 		weston_layer_entry_remove(&view->layer_link);
@@ -280,10 +280,11 @@ ivi_layout_activate_complete(struct ivi_output *output,
 	/* drop any previous masks set on this view */
 	weston_view_set_mask_infinite(view);
 
-	if (surf->role != IVI_SURFACE_ROLE_BACKGROUND)
-		weston_view_set_position(view,
-					 woutput->x + output->area.x,
-					 woutput->y + output->area.y);
+	if (surf->role != IVI_SURFACE_ROLE_BACKGROUND) {
+		pos.c.x = woutput->pos.c.x + output->area.x;
+		pos.c.y = woutput->pos.c.y + output->area.y;
+		weston_view_set_position(view, pos);
+	}
 
 	/* reset any previous orientation */
 	if (surf->orientation != AGL_SHELL_TILE_ORIENTATION_NONE &&
@@ -720,7 +721,7 @@ ivi_layout_fullscreen_committed(struct ivi_surface *surface)
 		weston_layer_entry_remove(&view->layer_link);
 
 		weston_view_set_output(view, woutput);
-		weston_view_set_position(view, woutput->x, woutput->y);
+		weston_view_set_position(view, woutput->pos);
 		weston_layer_entry_insert(&ivi->fullscreen.view_list, &view->layer_link);
 
 		wsurface->is_mapped = true;
@@ -752,15 +753,17 @@ ivi_layout_desktop_resize(struct ivi_surface *surface,
 	struct weston_desktop_surface *dsurf = surface->dsurface;
 	struct weston_view *view = surface->view;
 
-	int x = area.x;
-	int y = area.y;
+	struct weston_coord_global pos;
 	int width = area.width;
 	int height = area.height;
+
+	pos.c.x = area.x;
+	pos.c.y = area.y;
 
 	weston_desktop_surface_set_size(dsurf,
 					width, height);
 
-	weston_view_set_position(view, x, y);
+	weston_view_set_position(view, pos);
 
 	weston_view_geometry_dirty(view);
 	weston_surface_damage(view->surface);
@@ -786,11 +789,8 @@ ivi_layout_split_committed(struct ivi_surface *surface)
 	struct weston_view *view = surface->view;
 	struct weston_geometry geom;
 
-	int x, y;
+	struct weston_coord_global pos = woutput->pos;
 	int width, height;
-
-	x = woutput->x;
-	y = woutput->y;
 
 	if (policy && policy->api.surface_activate_by_default &&
 	    !policy->api.surface_activate_by_default(surface, surface->ivi) &&
@@ -813,25 +813,25 @@ ivi_layout_split_committed(struct ivi_surface *surface)
 	case IVI_SURFACE_ROLE_SPLIT_V:
 		geom.width = (output->area.width / 2);
 
-		x += woutput->width - geom.width;
+		pos.c.x += woutput->width - geom.width;
 		output->area.width -= geom.width;
 
-		width = woutput->width - x;
+		width = woutput->width - pos.c.x;
 		height = output->area.height;
-		y = output->area.y;
+		pos.c.y = output->area.y;
 
 		break;
 	case IVI_SURFACE_ROLE_SPLIT_H:
 		geom.height = (output->area.height / 2);
 
-		y = output->area.y;
+		pos.c.y = output->area.y;
 		output->area.y += geom.height;
 		output->area.height -= geom.height;
 
 		width = output->area.width;
 		height = output->area.height;
 
-		x = output->area.x;
+		pos.c.x = output->area.x;
 
 		break;
 	default:
@@ -847,7 +847,7 @@ ivi_layout_split_committed(struct ivi_surface *surface)
 		ivi_layout_desktop_resize(output->active, output->area);
 
 	weston_view_set_output(view, woutput);
-	weston_view_set_position(view, x, y);
+	weston_view_set_position(view, pos);
 	weston_layer_entry_insert(&ivi->normal.view_list, &view->layer_link);
 
 	weston_view_geometry_dirty(view);
@@ -868,10 +868,10 @@ ivi_layout_split_committed(struct ivi_surface *surface)
 
 static void
 ivi_compute_popup_position(const struct weston_output *output, struct weston_view *view,
-			   int initial_x, int initial_y, int *new_x, int *new_y)
+			   int initial_x, int initial_y, double *new_x, double *new_y)
 {
-	*new_x = output->x + initial_x;
-	*new_y = output->y + initial_y;
+	*new_x = output->pos.c.x + initial_x;
+	*new_y = output->pos.c.y + initial_y;
 }
 
 
@@ -904,7 +904,7 @@ ivi_layout_popup_committed(struct ivi_surface *surface)
 		weston_desktop_surface_get_surface(dsurface);
 	const char *app_id = weston_desktop_surface_get_app_id(dsurface);
 
-	int new_x, new_y;
+	struct weston_coord_global pos;
 
 	struct ivi_output *output = surface->popup.output;
 	struct weston_output *woutput = output->output;
@@ -931,8 +931,8 @@ ivi_layout_popup_committed(struct ivi_surface *surface)
 	weston_view_set_output(view, woutput);
 
 	ivi_compute_popup_position(woutput, view,
-				   surface->popup.x, surface->popup.y, &new_x, &new_y);
-	weston_view_set_position(view, new_x, new_y);
+				   surface->popup.x, surface->popup.y, &pos.c.x, &pos.c.y);
+	weston_view_set_position(view, pos);
 	weston_view_update_transform(view);
 
 	/* only clip the pop-up dialog window if we have a valid

@@ -1068,7 +1068,7 @@ create_black_curtain_view(struct ivi_output *output)
 				    woutput->width, woutput->height);
 
 	weston_surface_set_label_func(surface, curtain_get_label);
-	weston_view_set_position(view, woutput->x, woutput->y);
+	weston_view_set_position(view, woutput->pos);
 
 	output->fullscreen_view.fs = zalloc(sizeof(struct ivi_surface));
 	if (!output->fullscreen_view.fs)
@@ -1764,13 +1764,16 @@ static void
 shell_set_app_position(struct wl_client *client, struct wl_resource *res,
 		    const char *app_id, int32_t x, int32_t y)
 {
+	struct weston_coord_global pos;
 	struct ivi_compositor *ivi = wl_resource_get_user_data(res);
 	struct ivi_surface *surf = ivi_find_app(ivi, app_id);
 
 	if (!surf || !app_id || surf->role != IVI_SURFACE_ROLE_POPUP)
 		return;
 
-	weston_view_set_position(surf->view, x, y);
+	pos.c.x = x;
+	pos.c.y = y;
+	weston_view_set_position(surf->view, pos);
 	weston_compositor_schedule_repaint(ivi->compositor);
 }
 
