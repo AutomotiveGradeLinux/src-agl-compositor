@@ -1897,7 +1897,7 @@ shell_ivi_surf_count_split_surfaces(struct ivi_compositor *ivi)
 static
 void shell_set_app_split(struct wl_client *client, struct wl_resource *res,
 			 const char *app_id, uint32_t orientation, int32_t width,
-			 struct wl_resource *output_res)
+			 int32_t sticky, struct wl_resource *output_res)
 {
 	struct ivi_surface *surf;
 	struct ivi_compositor *ivi = wl_resource_get_user_data(res);

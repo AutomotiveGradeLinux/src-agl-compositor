@@ -410,12 +410,18 @@
         width can't exceed the output width value, or the compositor can choose
         to ignore this value.
 
+        Making the split window sticky would inform the compositor that the
+        window should always be active when switching or when activating between
+        other windows. This would allow navigating, starting and activating other
+        windows while keeping the current window always in a split state.
+
         See xdg_toplevel.set_app_id from the xdg-shell protocol for a
         description of app_id.
       </description>
       <arg name="app_id" type="string"/>
       <arg name="orientation" type="uint" enum="tile_orientation"/>
       <arg name="width" type="int" summary="width of the window being split"/>
+      <arg name="sticky" type="int" summary="make the split window stiky"/>
       <arg name="output" type="object" interface="wl_output"/>
     </request>
   </interface>

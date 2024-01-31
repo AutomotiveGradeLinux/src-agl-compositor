@@ -225,7 +225,9 @@ GrpcServiceImpl::SetAppSplit(grpc::CallbackServerContext *context,
 		LOG("m_aglShell not set-up\n");
 		return nullptr;
 	}
-	m_aglShell->SetAppSplit(request->app_id(), request->tile_orientation(), request->width(), request->output_name());
+	m_aglShell->SetAppSplit(request->app_id(), request->tile_orientation(),
+				request->width(), request->sticky(),
+				request->output_name());
 
 	grpc::ServerUnaryReactor* reactor = context->DefaultReactor();
 	reactor->Finish(grpc::Status::OK);

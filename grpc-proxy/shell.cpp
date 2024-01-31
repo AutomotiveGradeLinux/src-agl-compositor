@@ -140,7 +140,8 @@ Shell::SetAppScale(const std::string &app_id,
 }
 
 void
-Shell::SetAppSplit(const std::string &app_id, uint32_t orientation, uint32_t width, const std::string &output_name)
+Shell::SetAppSplit(const std::string &app_id, uint32_t orientation,
+		uint32_t width, uint32_t sticky, const std::string &output_name)
 {
 	struct window_output *woutput, *w_output;
 	struct agl_shell *shell = this->m_shell.get();
@@ -161,6 +162,6 @@ Shell::SetAppSplit(const std::string &app_id, uint32_t orientation, uint32_t wid
 					   w_output, link);
 
 
-	agl_shell_set_app_split(shell, app_id.c_str(), orientation, width, w_output->output);
+	agl_shell_set_app_split(shell, app_id.c_str(), orientation, width, sticky, w_output->output);
 	wl_display_flush(m_shell_data->wl_display);
 }
