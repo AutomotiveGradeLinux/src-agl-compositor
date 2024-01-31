@@ -1896,7 +1896,7 @@ shell_ivi_surf_count_split_surfaces(struct ivi_compositor *ivi)
 
 static
 void shell_set_app_split(struct wl_client *client, struct wl_resource *res,
-			 const char *app_id, uint32_t orientation,
+			 const char *app_id, uint32_t orientation, int32_t width,
 			 struct wl_resource *output_res)
 {
 	struct ivi_surface *surf;
@@ -1920,10 +1920,6 @@ void shell_set_app_split(struct wl_client *client, struct wl_resource *res,
 		_ivi_set_pending_desktop_surface_split(output_res, app_id, orientation);
 		return;
 	}
-
-	/* otherwise, take actions now */
-	weston_log("%s() added split surface for app_id '%s' with orientation %d\n",
-			__func__, app_id, orientation);
 
 	if (output->previous_active) {
 		struct weston_view *ev = output->previous_active->view;

@@ -352,7 +352,7 @@
     </request>
 
     <request name="set_app_split" since="11">
-      <description summary="set the application split">
+      <description summary="set the application with a split orientation">
         This requests asks the compositor to change the application from the
         original mode (whatever that might be) to a split, tiled orientation
         mode defined in the tile orientation enum.
@@ -406,11 +406,16 @@
         such that users can cycle between that one or the other, assumes there's
         another window in the first place.
 
+        A width size can also be specified for the split window. Note that this
+        width can't exceed the output width value, or the compositor can choose
+        to ignore this value.
+
         See xdg_toplevel.set_app_id from the xdg-shell protocol for a
         description of app_id.
       </description>
       <arg name="app_id" type="string"/>
       <arg name="orientation" type="uint" enum="tile_orientation"/>
+      <arg name="width" type="int" summary="width of the window being split"/>
       <arg name="output" type="object" interface="wl_output"/>
     </request>
   </interface>
