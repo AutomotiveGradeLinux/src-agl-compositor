@@ -803,9 +803,9 @@ ivi_shell_advertise_xdg_surfaces(struct ivi_compositor *ivi, struct wl_resource 
 
 static struct wl_client *
 client_launch(struct weston_compositor *compositor,
-		     struct weston_process *proc,
+		     struct wet_process *proc,
 		     const char *path,
-		     weston_process_cleanup_func_t cleanup)
+		     wet_process_cleanup_func_t cleanup)
 {
 	struct wl_client *client = NULL;
 	struct custom_env child_env;
@@ -910,14 +910,14 @@ client_launch(struct weston_compositor *compositor,
 }
 
 struct process_info {
-	struct weston_process proc;
+	struct wet_process proc;
 	char *path;
 };
 
 int
 sigchld_handler(int signal_number, void *data)
 {
-	struct weston_process *p;
+	struct wet_process *p;
 	struct ivi_compositor *ivi = data;
 	int status;
 	pid_t pid;
@@ -935,7 +935,7 @@ sigchld_handler(int signal_number, void *data)
 
 		wl_list_remove(&p->link);
 		wl_list_init(&p->link);
-		p->cleanup(p, status);
+		p->cleanup(p, status, NULL);
 	}
 
 	if (pid < 0 && errno != ECHILD)
@@ -946,7 +946,7 @@ sigchld_handler(int signal_number, void *data)
 
 
 static void
-process_handle_sigchld(struct weston_process *process, int status)
+process_handle_sigchld(struct wet_process *process, int status, void *data)
 {
 	struct process_info *pinfo =
 		container_of(process, struct process_info, proc);
