@@ -60,6 +60,7 @@ struct ivi_output_config {
 
 struct ivi_compositor {
 	struct weston_compositor *compositor;
+	struct weston_backend *backend;
 	struct weston_config *config;
 	struct ivi_output_config *parsed_options;
 

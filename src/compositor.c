@@ -1076,7 +1076,6 @@ load_drm_backend(struct ivi_compositor *ivi, int *argc, char *argv[],
 	bool force_pixman = false;
 	bool use_shadow;
 	bool without_input = false;
-	int ret;
 
 	const struct weston_option options[] = {
 		{ WESTON_OPTION_STRING, "seat", 0, &config.seat_id },
@@ -1106,15 +1105,13 @@ load_drm_backend(struct ivi_compositor *ivi, int *argc, char *argv[],
 	if (without_input)
 		ivi->compositor->require_input = !without_input;
 
-	ret = weston_compositor_load_backend(ivi->compositor, WESTON_BACKEND_DRM,
-					     &config.base);
-	if (ret < 0)
-		return ret;
+	if (!weston_compositor_load_backend(ivi->compositor, WESTON_BACKEND_DRM,
+					    &config.base))
+		return -1;
 
 	ivi->drm_api = weston_drm_output_get_api(ivi->compositor);
 	if (!ivi->drm_api) {
 		weston_log("Cannot use drm output api.\n");
-		ret = -1;
 		goto error;
 	}
 
@@ -1123,7 +1120,7 @@ load_drm_backend(struct ivi_compositor *ivi, int *argc, char *argv[],
 error:
 	free(config.gbm_format);
 	free(config.seat_id);
-	return ret;
+	return -1;
 }
 
 static void
@@ -1179,7 +1176,7 @@ windowed_create_outputs(struct ivi_compositor *ivi, int output_count,
 			continue;
 		}
 
-		if (ivi->window_api->create_head(ivi->compositor->backend, output_name) < 0) {
+		if (ivi->window_api->create_head(ivi->backend, output_name) < 0) {
 			free(output_name);
 			return -1;
 		}
@@ -1192,7 +1189,7 @@ windowed_create_outputs(struct ivi_compositor *ivi, int output_count,
 		if (asprintf(&default_output, "%s%d", name_prefix, i) < 0)
 			return -1;
 
-		if (ivi->window_api->create_head(ivi->compositor->backend, default_output) < 0) {
+		if (ivi->window_api->create_head(ivi->backend, default_output) < 0) {
 			free(default_output);
 			return -1;
 		}
@@ -1217,7 +1214,6 @@ load_wayland_backend(struct ivi_compositor *ivi, int *argc, char *argv[],
 	int sprawl = 0;
 	int output_count;
 	bool force_pixman = false;
-	int ret;
 
 	const struct weston_option options[] = {
 		{ WESTON_OPTION_STRING, "display", 0, &config.display_name },
@@ -1236,14 +1232,14 @@ load_wayland_backend(struct ivi_compositor *ivi, int *argc, char *argv[],
 	weston_config_section_get_int(section, "cursor-size",
 				      &config.cursor_size, 32);
 
-	ret = weston_compositor_load_backend(ivi->compositor, WESTON_BACKEND_WAYLAND,
-					     &config.base);
+	ivi->backend = weston_compositor_load_backend(ivi->compositor, WESTON_BACKEND_WAYLAND,
+						      &config.base);
 
 	free(config.cursor_theme);
 	free(config.display_name);
 
-	if (ret < 0)
-		return ret;
+	if (!ivi->backend)
+		return -1;
 
 	ivi->window_api = weston_windowed_output_get_api(ivi->compositor);
 
@@ -1970,12 +1966,12 @@ copy_command_line(int argc, char * const argv[])
 }
 
 #if !defined(BUILD_XWAYLAND)
-int
+void *
 wet_load_xwayland(struct weston_compositor *comp)
 {
 	weston_log("Attempted to load xwayland library but compositor "
 		   "was *not* built with xwayland support!\n");
-	return -1;
+	return NULL;
 }
 #endif
 
@@ -2182,7 +2178,7 @@ int wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_da
 		goto error_compositor;
 
 	if (xwayland) {
-		if (wet_load_xwayland(ivi.compositor) < 0)
+		if (!wet_load_xwayland(ivi.compositor))
 			goto error_compositor;
 	}
 
