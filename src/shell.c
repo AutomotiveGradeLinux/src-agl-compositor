@@ -1921,7 +1921,7 @@ void shell_set_app_split(struct wl_client *client, struct wl_resource *res,
 		return;
 	}
 
-	if (output->previous_active) {
+	if (output->previous_active && output->background != output->previous_active) {
 		struct weston_view *ev = output->previous_active->view;
 
 		if (!weston_view_is_mapped(ev))

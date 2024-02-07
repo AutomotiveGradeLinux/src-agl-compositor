@@ -1050,7 +1050,7 @@ ivi_layout_reset_split_surfaces(struct ivi_compositor *ivi)
 		return;
 
 	output = ivisurf->current_completed_output;
-	if (output->previous_active) {
+	if (output->previous_active && output->background != output->previous_active) {
 		struct weston_view *ev = output->previous_active->view;
 		struct weston_output *woutput = output->output;
 
