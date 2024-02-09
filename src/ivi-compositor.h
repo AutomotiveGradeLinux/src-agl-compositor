@@ -242,6 +242,7 @@ struct pending_app {
 struct pending_app_tile {
 	struct pending_app base;
 	uint32_t orientation;
+	uint32_t width;
 };
 
 struct ivi_desktop_surface {
@@ -543,6 +544,6 @@ ivi_layout_reset_split_surfaces(struct ivi_compositor *ivi);
 
 void
 _ivi_set_shell_surface_split(struct ivi_surface *surface, struct ivi_output *output,
-			     uint32_t orientation, bool to_activate);
+			     uint32_t orientation, uint32_t width, bool to_activate);
 
 #endif

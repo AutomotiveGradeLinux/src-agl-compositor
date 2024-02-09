@@ -651,8 +651,18 @@ ivi_check_pending_desktop_surface(struct ivi_surface *surface)
 
 		// handle the currently active surface
 		if (papp->ioutput->active) {
+			int width_prev_app = 0;
+
+			if (papp_tile->width > 0) {
+				if (papp_tile->orientation == AGL_SHELL_TILE_ORIENTATION_TOP ||
+				    papp_tile->orientation == AGL_SHELL_TILE_ORIENTATION_BOTTOM)
+					width_prev_app = papp->ioutput->area.height - papp_tile->width;
+				else
+					width_prev_app = papp->ioutput->area.width - papp_tile->width;
+			}
 			_ivi_set_shell_surface_split(papp->ioutput->active, NULL,
-					reverse_orientation(papp_tile->orientation), false);
+					reverse_orientation(papp_tile->orientation),
+					width_prev_app, false);
 		}
 
 		surface->role = IVI_SURFACE_ROLE_TILE;
@@ -660,7 +670,7 @@ ivi_check_pending_desktop_surface(struct ivi_surface *surface)
 		wl_list_insert(&surface->ivi->surfaces, &surface->link);
 
 		_ivi_set_shell_surface_split(surface, papp->ioutput,
-				papp_tile->orientation, true);
+				papp_tile->orientation, papp_tile->width, true);
 
 		/* remove it from pending */
 		wl_list_remove(&papp->link);
@@ -1790,13 +1800,13 @@ reverse_orientation(uint32_t orientation)
 
 void
 _ivi_set_shell_surface_split(struct ivi_surface *surface, struct ivi_output *ioutput,
-			     uint32_t orientation, bool to_activate)
+			     uint32_t orientation, uint32_t width, bool to_activate)
 {
 	struct ivi_compositor *ivi = surface->ivi;
 	struct weston_geometry geom = {};
 	struct ivi_output *output = NULL;
 
-	int width, height;
+	int new_width, new_height;
 	int x, y;
 
 	geom = weston_desktop_surface_get_geometry(surface->dsurface);
@@ -1805,19 +1815,32 @@ _ivi_set_shell_surface_split(struct ivi_surface *surface, struct ivi_output *iou
 	if (!output)
 		output = ioutput;
 
-	width = output->area.width;
-	height = output->area.height;
-
+	// if we don't supply a width we automatically default to doing a half
+	// split, each window taking half of the current output
 	switch (orientation) {
 	case AGL_SHELL_TILE_ORIENTATION_LEFT:
 	case AGL_SHELL_TILE_ORIENTATION_RIGHT:
-		width /= 2;
+		if (width == 0) {
+			new_width = output->area.width / 2;
+			new_height = output->area.height;
+		} else {
+			new_width = width;
+			new_height = output->area.height;
+		}
 	break;
 	case AGL_SHELL_TILE_ORIENTATION_TOP:
 	case AGL_SHELL_TILE_ORIENTATION_BOTTOM:
-		height /= 2;
+		if (width == 0) {
+			new_width = output->area.width;
+			new_height = output->area.height / 2;
+		} else {
+			new_width = output->area.width;
+			new_height = width;
+		}
 	break;
 	case AGL_SHELL_TILE_ORIENTATION_NONE:
+		new_width = output->area.width;
+		new_height = output->area.height;
 	break;
 	default:
 		/* nothing */
@@ -1829,9 +1852,10 @@ _ivi_set_shell_surface_split(struct ivi_surface *surface, struct ivi_output *iou
 	y = output->area.y - geom.y;
 
 	if (orientation == AGL_SHELL_TILE_ORIENTATION_RIGHT)
-		x += width;
+		x += output->area.width - new_width;
 	else if (orientation == AGL_SHELL_TILE_ORIENTATION_BOTTOM)
-		y += height;
+		y += output->area.height - new_height;
+
 
 	if (to_activate) {
 		struct weston_view *ev = surface->view;
@@ -1868,15 +1892,11 @@ _ivi_set_shell_surface_split(struct ivi_surface *surface, struct ivi_output *iou
 	}
 
 	weston_view_set_position(surface->view, x, y);
-	weston_desktop_surface_set_size(surface->dsurface, width, height);
+	weston_desktop_surface_set_size(surface->dsurface, new_width, new_height);
 	weston_desktop_surface_set_orientation(surface->dsurface, orientation);
 	surface->orientation = orientation;
 
 	weston_compositor_schedule_repaint(ivi->compositor);
-
-	weston_log("%s() Setting to x=%d, y=%d, width=%d, height=%d, orientation=%d\n",
-			__func__, x, y, width, height, orientation);
-
 }
 
 static int
@@ -1923,6 +1943,7 @@ void shell_set_app_split(struct wl_client *client, struct wl_resource *res,
 
 	if (output->previous_active && output->background != output->previous_active) {
 		struct weston_view *ev = output->previous_active->view;
+		int width_prev_app = 0;
 
 		if (!weston_view_is_mapped(ev))
 			weston_view_update_transform(ev);
@@ -1937,8 +1958,18 @@ void shell_set_app_split(struct wl_client *client, struct wl_resource *res,
 
 		weston_layer_entry_insert(&ivi->normal.view_list, &ev->layer_link);
 
+		/* a 0 width means we have no explicit width set-up */
+		if (width > 0) {
+			if (orientation == AGL_SHELL_TILE_ORIENTATION_TOP ||
+			    orientation == AGL_SHELL_TILE_ORIENTATION_BOTTOM)
+				width_prev_app = output->area.height - width;
+			else
+				width_prev_app = output->area.width - width;
+		}
+
 		_ivi_set_shell_surface_split(output->previous_active, NULL,
-					     reverse_orientation(orientation), false);
+					     reverse_orientation(orientation),
+					     width_prev_app, false);
 
 		if (orientation == AGL_SHELL_TILE_ORIENTATION_NONE &&
 		    output->active == surf) {
@@ -1946,7 +1977,7 @@ void shell_set_app_split(struct wl_client *client, struct wl_resource *res,
 		}
 	}
 
-	_ivi_set_shell_surface_split(surf, NULL, orientation, false);
+	_ivi_set_shell_surface_split(surf, NULL, orientation, width, false);
 }
 
 static void

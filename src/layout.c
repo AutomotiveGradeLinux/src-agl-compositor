@@ -1067,7 +1067,7 @@ ivi_layout_reset_split_surfaces(struct ivi_compositor *ivi)
 
 		weston_layer_entry_insert(&ivi->normal.view_list, &ev->layer_link);
 
-		_ivi_set_shell_surface_split(output->previous_active, NULL,
+		_ivi_set_shell_surface_split(output->previous_active, NULL, 0,
 					     AGL_SHELL_TILE_ORIENTATION_NONE, false);
 
 		if (output->active == ivisurf) {
@@ -1075,7 +1075,7 @@ ivi_layout_reset_split_surfaces(struct ivi_compositor *ivi)
 		}
 	}
 
-	_ivi_set_shell_surface_split(ivisurf, NULL,
+	_ivi_set_shell_surface_split(ivisurf, NULL, 0,
 				     AGL_SHELL_TILE_ORIENTATION_NONE, false);
 }
 
