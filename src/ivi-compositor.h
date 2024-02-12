@@ -243,6 +243,7 @@ struct pending_app_tile {
 	struct pending_app base;
 	uint32_t orientation;
 	uint32_t width;
+	int32_t sticky;
 };
 
 struct ivi_desktop_surface {
@@ -295,6 +296,7 @@ struct ivi_surface {
 	struct wl_list link;
 	int focus_count;
 	uint32_t orientation;
+	int32_t sticky;
 
 	struct {
 		enum ivi_surface_flags flags;
@@ -544,6 +546,7 @@ ivi_layout_reset_split_surfaces(struct ivi_compositor *ivi);
 
 void
 _ivi_set_shell_surface_split(struct ivi_surface *surface, struct ivi_output *output,
-			     uint32_t orientation, uint32_t width, bool to_activate);
+			     uint32_t orientation, uint32_t width, int32_t sticky,
+			     bool to_activate);
 
 #endif

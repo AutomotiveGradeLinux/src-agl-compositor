@@ -286,7 +286,8 @@ ivi_layout_activate_complete(struct ivi_output *output,
 					 woutput->y + output->area.y);
 
 	/* reset any previous orientation */
-	if (surf->orientation != AGL_SHELL_TILE_ORIENTATION_NONE) {
+	if (surf->orientation != AGL_SHELL_TILE_ORIENTATION_NONE &&
+	    !surf->sticky) {
 		weston_log("%s() resetting itself to none orientation\n", __func__);
 		surf->orientation = AGL_SHELL_TILE_ORIENTATION_NONE;
 		weston_desktop_surface_set_orientation(surf->dsurface,
@@ -317,7 +318,9 @@ ivi_layout_activate_complete(struct ivi_output *output,
 
 	if (output->active) {
 		/* keep the background surface mapped at all times */
-		if (output->active->role != IVI_SURFACE_ROLE_BACKGROUND) {
+		if (output->active->role != IVI_SURFACE_ROLE_BACKGROUND &&
+		    !output->active->sticky) {
+
 			output->active->view->is_mapped = false;
 			output->active->view->surface->is_mapped = false;
 
@@ -1036,11 +1039,13 @@ void
 ivi_layout_reset_split_surfaces(struct ivi_compositor *ivi)
 {
 	struct ivi_surface *ivisurf;
+	struct ivi_surface *found_ivi_surf = NULL;
 	bool found_split_surface = false;
 	struct ivi_output *output = NULL;
 
 	wl_list_for_each(ivisurf, &ivi->surfaces, link) {
 		if (ivisurf->orientation != AGL_SHELL_TILE_ORIENTATION_NONE) {
+			found_ivi_surf = ivisurf;
 			found_split_surface = true;
 			break;
 		}
@@ -1049,7 +1054,11 @@ ivi_layout_reset_split_surfaces(struct ivi_compositor *ivi)
 	if (!found_split_surface)
 		return;
 
-	output = ivisurf->current_completed_output;
+	output = found_ivi_surf->current_completed_output;
+
+	if (found_ivi_surf->sticky)
+		return;
+
 	if (output->previous_active && output->background != output->previous_active) {
 		struct weston_view *ev = output->previous_active->view;
 		struct weston_output *woutput = output->output;
@@ -1068,7 +1077,7 @@ ivi_layout_reset_split_surfaces(struct ivi_compositor *ivi)
 		weston_layer_entry_insert(&ivi->normal.view_list, &ev->layer_link);
 
 		_ivi_set_shell_surface_split(output->previous_active, NULL, 0,
-					     AGL_SHELL_TILE_ORIENTATION_NONE, false);
+					     AGL_SHELL_TILE_ORIENTATION_NONE, false, false);
 
 		if (output->active == ivisurf) {
 			output->active = output->previous_active;
@@ -1076,7 +1085,7 @@ ivi_layout_reset_split_surfaces(struct ivi_compositor *ivi)
 	}
 
 	_ivi_set_shell_surface_split(ivisurf, NULL, 0,
-				     AGL_SHELL_TILE_ORIENTATION_NONE, false);
+				     AGL_SHELL_TILE_ORIENTATION_NONE, false, false);
 }
 
 void
@@ -1124,6 +1133,12 @@ ivi_layout_activate_by_surf(struct ivi_output *output, struct ivi_surface *surf)
 	/* do not 're'-activate surfaces that are split or active */
 	if (surf == output->active) {
 		weston_log("Application %s is already active on output %s\n",
+				app_id, output->output->name);
+		return;
+	}
+
+	if (surf->sticky && surf->role == IVI_SURFACE_ROLE_TILE) {
+		weston_log("Application %s is already active on output %s (split role)\n",
 				app_id, output->output->name);
 		return;
 	}

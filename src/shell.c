@@ -52,6 +52,9 @@ create_black_curtain_view(struct ivi_output *output);
 static uint32_t
 reverse_orientation(uint32_t orientation);
 
+const char *
+split_orientation_to_string(uint32_t orientation);
+
 void
 agl_shell_desktop_advertise_application_id(struct ivi_compositor *ivi,
 					   struct ivi_surface *surface)
@@ -662,7 +665,7 @@ ivi_check_pending_desktop_surface(struct ivi_surface *surface)
 			}
 			_ivi_set_shell_surface_split(papp->ioutput->active, NULL,
 					reverse_orientation(papp_tile->orientation),
-					width_prev_app, false);
+					width_prev_app, false, false);
 		}
 
 		surface->role = IVI_SURFACE_ROLE_TILE;
@@ -670,7 +673,8 @@ ivi_check_pending_desktop_surface(struct ivi_surface *surface)
 		wl_list_insert(&surface->ivi->surfaces, &surface->link);
 
 		_ivi_set_shell_surface_split(surface, papp->ioutput,
-				papp_tile->orientation, papp_tile->width, true);
+					     papp_tile->orientation, papp_tile->width,
+					     papp_tile->sticky, true);
 
 		/* remove it from pending */
 		wl_list_remove(&papp->link);
@@ -1776,6 +1780,27 @@ _ivi_set_pending_desktop_surface_split(struct wl_resource *output,
 }
 
 
+const char *
+split_orientation_to_string(uint32_t orientation)
+{
+	switch (orientation) {
+	case AGL_SHELL_TILE_ORIENTATION_LEFT:
+		return "tile_left";
+	break;
+	case AGL_SHELL_TILE_ORIENTATION_RIGHT:
+		return "tile_right";
+	break;
+	case AGL_SHELL_TILE_ORIENTATION_TOP:
+		return "title_top";
+	break;
+	case AGL_SHELL_TILE_ORIENTATION_BOTTOM:
+		return "tile_bottom";
+	break;
+	default:
+		return "none";
+	}
+}
+
 static uint32_t
 reverse_orientation(uint32_t orientation)
 {
@@ -1800,7 +1825,8 @@ reverse_orientation(uint32_t orientation)
 
 void
 _ivi_set_shell_surface_split(struct ivi_surface *surface, struct ivi_output *ioutput,
-			     uint32_t orientation, uint32_t width, bool to_activate)
+			     uint32_t orientation, uint32_t width, int32_t sticky,
+			     bool to_activate)
 {
 	struct ivi_compositor *ivi = surface->ivi;
 	struct weston_geometry geom = {};
@@ -1839,8 +1865,27 @@ _ivi_set_shell_surface_split(struct ivi_surface *surface, struct ivi_output *iou
 		}
 	break;
 	case AGL_SHELL_TILE_ORIENTATION_NONE:
-		new_width = output->area.width;
-		new_height = output->area.height;
+		/* use the current_completed_output because the sticky window
+		 * might have changed the output area */
+		new_width = surface->current_completed_output->area_activation.width;
+		new_height = surface->current_completed_output->area_activation.height;
+
+		if (new_width != output->area.width)
+			output->area.width = new_width;
+
+		if (new_height != output->area.height)
+			output->area.height = new_height;
+
+		weston_log("Adjusting activation area "
+			   "to %dX%d\n", output->area.width, output->area.height);
+
+		if (surface->sticky) {
+			surface->sticky = 0;
+			weston_log("Resetting sticky window\n");
+		}
+
+		surface->role = IVI_SURFACE_ROLE_DESKTOP;
+		weston_log("Resetting tile role to desktop\n");
 	break;
 	default:
 		/* nothing */
@@ -1891,12 +1936,35 @@ _ivi_set_shell_surface_split(struct ivi_surface *surface, struct ivi_output *iou
 			ivi_shell_activate_surface(surface, ivi_seat, WESTON_ACTIVATE_FLAG_NONE);
 	}
 
+
 	weston_view_set_position(surface->view, x, y);
 	weston_desktop_surface_set_size(surface->dsurface, new_width, new_height);
 	weston_desktop_surface_set_orientation(surface->dsurface, orientation);
 	surface->orientation = orientation;
 
 	weston_compositor_schedule_repaint(ivi->compositor);
+
+	if (sticky)
+		surface->sticky = sticky;
+
+	if (orientation != AGL_SHELL_TILE_ORIENTATION_NONE) {
+		surface->role = IVI_SURFACE_ROLE_TILE;
+		weston_log("Found split orientation different that none, "
+			   "setting surface role to orientation tile\n");
+	}
+
+	if (surface->sticky) {
+		if (orientation == AGL_SHELL_TILE_ORIENTATION_LEFT ||
+		    orientation == AGL_SHELL_TILE_ORIENTATION_RIGHT)
+			output->area.width -= new_width;
+
+		if (orientation == AGL_SHELL_TILE_ORIENTATION_TOP ||
+		    orientation == AGL_SHELL_TILE_ORIENTATION_BOTTOM)
+			output->area.height -= new_height;
+
+		weston_log("Found sticky window, adjusting activation area "
+			   "to %dX%d\n", output->area.width, output->area.height);
+	}
 }
 
 static int
@@ -1944,6 +2012,8 @@ void shell_set_app_split(struct wl_client *client, struct wl_resource *res,
 	if (output->previous_active && output->background != output->previous_active) {
 		struct weston_view *ev = output->previous_active->view;
 		int width_prev_app = 0;
+		const char *prev_app_id = 
+			weston_desktop_surface_get_app_id(output->previous_active->dsurface);
 
 		if (!weston_view_is_mapped(ev))
 			weston_view_update_transform(ev);
@@ -1967,9 +2037,13 @@ void shell_set_app_split(struct wl_client *client, struct wl_resource *res,
 				width_prev_app = output->area.width - width;
 		}
 
+		weston_log("Setting previous application '%s' to orientation '%s' width %d, not sticky\n",
+			   prev_app_id, split_orientation_to_string(reverse_orientation(orientation)),
+			   width_prev_app);
+
 		_ivi_set_shell_surface_split(output->previous_active, NULL,
 					     reverse_orientation(orientation),
-					     width_prev_app, false);
+					     width_prev_app, false, false);
 
 		if (orientation == AGL_SHELL_TILE_ORIENTATION_NONE &&
 		    output->active == surf) {
@@ -1977,7 +2051,10 @@ void shell_set_app_split(struct wl_client *client, struct wl_resource *res,
 		}
 	}
 
-	_ivi_set_shell_surface_split(surf, NULL, orientation, width, false);
+	weston_log("Setting application '%s' to orientation '%s' width %d, %s\n",
+		   app_id, split_orientation_to_string(orientation),
+		   width, sticky == 1 ? "sticky" : "not sticky");
+	_ivi_set_shell_surface_split(surf, NULL, orientation, width, sticky, false);
 }
 
 static void
