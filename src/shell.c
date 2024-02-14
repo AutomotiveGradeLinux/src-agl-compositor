@@ -1829,6 +1829,7 @@ _ivi_set_shell_surface_split(struct ivi_surface *surface, struct ivi_output *iou
 			     bool to_activate)
 {
 	struct ivi_compositor *ivi = surface->ivi;
+	struct weston_view *ev = surface->view;
 	struct weston_geometry geom = {};
 	struct ivi_output *output = NULL;
 
@@ -1884,8 +1885,8 @@ _ivi_set_shell_surface_split(struct ivi_surface *surface, struct ivi_output *iou
 			weston_log("Resetting sticky window\n");
 		}
 
-		surface->role = IVI_SURFACE_ROLE_DESKTOP;
-		weston_log("Resetting tile role to desktop\n");
+		surface->role = surface->prev_role;
+		weston_log("Resetting tile role to previous role\n");
 	break;
 	default:
 		/* nothing */
@@ -1903,7 +1904,6 @@ _ivi_set_shell_surface_split(struct ivi_surface *surface, struct ivi_output *iou
 
 
 	if (to_activate) {
-		struct weston_view *ev = surface->view;
 		struct ivi_shell_seat *ivi_seat = NULL;
 		struct weston_seat *wseat = get_ivi_shell_weston_first_seat(ivi);
 
@@ -1936,7 +1936,6 @@ _ivi_set_shell_surface_split(struct ivi_surface *surface, struct ivi_output *iou
 			ivi_shell_activate_surface(surface, ivi_seat, WESTON_ACTIVATE_FLAG_NONE);
 	}
 
-
 	weston_view_set_position(surface->view, x, y);
 	weston_desktop_surface_set_size(surface->dsurface, new_width, new_height);
 	weston_desktop_surface_set_orientation(surface->dsurface, orientation);
@@ -1948,6 +1947,7 @@ _ivi_set_shell_surface_split(struct ivi_surface *surface, struct ivi_output *iou
 		surface->sticky = sticky;
 
 	if (orientation != AGL_SHELL_TILE_ORIENTATION_NONE) {
+		surface->prev_role = surface->role;
 		surface->role = IVI_SURFACE_ROLE_TILE;
 		weston_log("Found split orientation different that none, "
 			   "setting surface role to orientation tile\n");
@@ -2010,23 +2010,33 @@ void shell_set_app_split(struct wl_client *client, struct wl_resource *res,
 	}
 
 	if (output->previous_active && output->background != output->previous_active) {
-		struct weston_view *ev = output->previous_active->view;
 		int width_prev_app = 0;
+		struct weston_view *ev = output->previous_active->view;
 		const char *prev_app_id = 
 			weston_desktop_surface_get_app_id(output->previous_active->dsurface);
 
-		if (!weston_view_is_mapped(ev))
-			weston_view_update_transform(ev);
-		else
+		if (orientation != AGL_SHELL_TILE_ORIENTATION_NONE)  {
+			if (!weston_view_is_mapped(ev))
+				weston_view_update_transform(ev);
+			else
+				weston_layer_entry_remove(&ev->layer_link);
+
+			ev->is_mapped = true;
+			ev->surface->is_mapped = true;
+			output->previous_active->mapped = true;
+
+			weston_view_set_output(ev, woutput);
+			weston_layer_entry_insert(&ivi->normal.view_list,
+						  &ev->layer_link);
+		} else {
+			ev->is_mapped = false;
+			ev->surface->is_mapped = false;
+
 			weston_layer_entry_remove(&ev->layer_link);
 
-		ev->is_mapped = true;
-		ev->surface->is_mapped = true;
-		output->previous_active->mapped = true;
-
-		weston_view_set_output(ev, woutput);
-
-		weston_layer_entry_insert(&ivi->normal.view_list, &ev->layer_link);
+			weston_view_geometry_dirty(ev);
+			weston_surface_damage(ev->surface);
+		}
 
 		/* a 0 width means we have no explicit width set-up */
 		if (width > 0) {

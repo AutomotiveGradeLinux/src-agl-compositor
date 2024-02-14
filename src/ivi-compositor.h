@@ -314,6 +314,7 @@ struct ivi_surface {
 	} state;
 
 	enum ivi_surface_role role;
+	enum ivi_surface_role prev_role;
 	union {
 		struct ivi_desktop_surface desktop;
 		struct ivi_background_surface bg;

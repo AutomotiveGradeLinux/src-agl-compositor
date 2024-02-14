@@ -1137,7 +1137,7 @@ ivi_layout_activate_by_surf(struct ivi_output *output, struct ivi_surface *surf)
 		return;
 	}
 
-	if (surf->sticky && surf->role == IVI_SURFACE_ROLE_TILE) {
+	if (surf->sticky && surf->role == IVI_SURFACE_ROLE_TILE && output->active == surf) {
 		weston_log("Application %s is already active on output %s (split role)\n",
 				app_id, output->output->name);
 		return;
@@ -1179,7 +1179,8 @@ ivi_layout_activate_by_surf(struct ivi_output *output, struct ivi_surface *surf)
 
 	/* the background surface is already "maximized" so we don't need to
 	 * add to the hidden layer */
-	if (surf->role == IVI_SURFACE_ROLE_BACKGROUND) {
+	if (surf->role == IVI_SURFACE_ROLE_BACKGROUND &&
+	    output->active->role != IVI_SURFACE_ROLE_TILE) {
 		ivi_layout_activate_complete(output, surf);
 		return;
 	}
