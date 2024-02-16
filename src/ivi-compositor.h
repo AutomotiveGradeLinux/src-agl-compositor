@@ -51,11 +51,20 @@ enum agl_shell_bound_status {
 	BOUND_FAILED,
 };
 
+struct ivi_output_config {
+	int width;
+	int height;
+	int32_t scale;
+	uint32_t transform;
+};
+
 struct ivi_compositor {
 	struct weston_compositor *compositor;
 	struct weston_config *config;
+	struct ivi_output_config *parsed_options;
 
 	struct wl_listener heads_changed;
+	int (*simple_output_configure)(struct weston_output *output);
 
 	bool init_failed;
 	bool disable_cursor;

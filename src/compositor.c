@@ -39,6 +39,9 @@
 
 #include <libweston/backend-drm.h>
 #include <libweston/backend-wayland.h>
+#ifdef HAVE_BACKEND_RDP
+#include <libweston/backend-rdp.h>
+#endif
 #ifdef HAVE_BACKEND_HEADLESS
 #include <libweston/backend-headless.h>
 #endif
@@ -68,6 +71,28 @@ to_ivi_compositor(struct weston_compositor *ec)
 {
 	return weston_compositor_get_user_data(ec);
 }
+
+static struct ivi_output_config *
+ivi_init_parsed_options(struct weston_compositor *compositor)
+{
+	struct ivi_compositor *ivi = to_ivi_compositor(compositor);
+	struct ivi_output_config *config;
+
+	config = zalloc(sizeof *config);
+	if (!config)
+		return NULL;
+
+	config->width = 0;
+	config->height = 0;
+	config->scale = 0;
+	config->transform = UINT32_MAX;
+
+	ivi->parsed_options = config;
+
+	return config;
+}
+
+
 
 static void
 sigint_helper(int sig)
@@ -218,7 +243,8 @@ ivi_output_configure_app_id(struct ivi_output *ivi_output)
 
 static struct ivi_output *
 ivi_ensure_output(struct ivi_compositor *ivi, char *name,
-		  struct weston_config_section *config)
+		  struct weston_config_section *config,
+		  struct weston_head *head)
 {
 	struct ivi_output *output = NULL;
 	wl_list_for_each(output, &ivi->outputs, link) {
@@ -238,11 +264,41 @@ ivi_ensure_output(struct ivi_compositor *ivi, char *name,
 	output->name = name;
 	output->config = config;
 
-	output->output = weston_compositor_create_output(ivi->compositor, name);
-	if (!output->output) {
-		free(output->name);
-		free(output);
-		return NULL;
+	if (ivi->simple_output_configure) {
+		output->output =
+			weston_compositor_create_output_with_head(ivi->compositor,
+								  head);
+		if (!output->output) {
+			free(output->name);
+			free(output);
+			return NULL;
+		}
+
+		int ret = ivi->simple_output_configure(output->output);
+		if (ret < 0) {
+			weston_log("Configuring output \"%s\" failed.\n",
+					weston_head_get_name(head));
+			weston_output_destroy(output->output);
+			ivi->init_failed = true;
+			return NULL;
+		}
+
+		if (weston_output_enable(output->output) < 0) {
+			weston_log("Enabling output \"%s\" failed.\n",
+					weston_head_get_name(head));
+			weston_output_destroy(output->output);
+			ivi->init_failed = true;
+			return NULL;
+		}
+
+	} else {
+		output->output =
+			weston_compositor_create_output(ivi->compositor, name);
+		if (!output->output) {
+			free(output->name);
+			free(output);
+			return NULL;
+		}
 	}
 
 	output->output_destroy.notify = handle_output_destroy;
@@ -491,7 +547,6 @@ try_attach_heads(struct ivi_output *output)
 			output->add[fail_len++] = tmp;
 		}
 	}
-
 	return fail_len;
 }
 
@@ -636,6 +691,7 @@ head_prepare_enable(struct ivi_compositor *ivi, struct weston_head *head)
 	struct ivi_output *output;
 	char *output_name = NULL;
 
+
 	section = find_controlling_output_config(ivi->config, name);
 	if (section) {
 		char *mode;
@@ -656,7 +712,7 @@ head_prepare_enable(struct ivi_compositor *ivi, struct weston_head *head)
 	if (!output_name)
 		return;
 
-	output = ivi_ensure_output(ivi, output_name, section);
+	output = ivi_ensure_output(ivi, output_name, section, head);
 	if (!output)
 		return;
 
@@ -1199,6 +1255,104 @@ load_headless_backend(struct ivi_compositor *ivi, int *argc, char **argv)
 }
 #endif
 
+#ifdef HAVE_BACKEND_RDP
+static void
+weston_rdp_backend_config_init(struct weston_rdp_backend_config *config)
+{
+        config->base.struct_version = WESTON_RDP_BACKEND_CONFIG_VERSION;
+        config->base.struct_size = sizeof(struct weston_rdp_backend_config);
+
+        config->bind_address = NULL;
+        config->port = 3389;
+        config->rdp_key = NULL;
+        config->server_cert = NULL;
+        config->server_key = NULL;
+        config->env_socket = 0;
+        config->no_clients_resize = 1;
+        config->force_no_compression = 0;
+}
+
+static int
+rdp_backend_output_configure(struct weston_output *output)
+{
+	struct ivi_compositor *ivi = to_ivi_compositor(output->compositor);
+	struct ivi_output_config *parsed_options = ivi->parsed_options;
+	const struct weston_rdp_output_api *api =
+		weston_rdp_output_get_api(output->compositor);
+	int width = 640;
+	int height = 480;
+
+	assert(parsed_options);
+
+	if (!api) {
+		weston_log("Cannot use weston_rdp_output_api.\n");
+		return -1;
+	}
+
+	if (parsed_options->width)
+		width = parsed_options->width;
+
+	if (parsed_options->height)
+		height = parsed_options->height;
+
+	weston_output_set_scale(output, 1);
+	weston_output_set_transform(output, WL_OUTPUT_TRANSFORM_NORMAL);
+
+	if (api->output_set_size(output, width, height) < 0) {
+		weston_log("Cannot configure output \"%s\" using weston_rdp_output_api.\n",
+				output->name);
+		return -1;
+	}
+
+	return 0;
+}
+
+static int
+load_rdp_backend(struct ivi_compositor *ivi, int *argc, char **argv)
+{
+	struct weston_rdp_backend_config config = {};
+	int ret = 0;
+
+	struct ivi_output_config *parsed_options = ivi_init_parsed_options(ivi->compositor);
+	if (!parsed_options)
+		return -1;
+
+	weston_rdp_backend_config_init(&config);
+
+	const struct weston_option rdp_options[] = {
+		{ WESTON_OPTION_BOOLEAN, "env-socket", 0, &config.env_socket },
+		{ WESTON_OPTION_INTEGER, "width", 0, &parsed_options->width },
+		{ WESTON_OPTION_INTEGER, "height", 0, &parsed_options->height },
+		{ WESTON_OPTION_STRING,  "address", 0, &config.bind_address },
+		{ WESTON_OPTION_INTEGER, "port", 0, &config.port },
+		{ WESTON_OPTION_BOOLEAN, "no-clients-resize", 0, &config.no_clients_resize },
+		{ WESTON_OPTION_STRING,  "rdp4-key", 0, &config.rdp_key },
+		{ WESTON_OPTION_STRING,  "rdp-tls-cert", 0, &config.server_cert },
+		{ WESTON_OPTION_STRING,  "rdp-tls-key", 0, &config.server_key },
+		{ WESTON_OPTION_BOOLEAN, "force-no-compression", 0, &config.force_no_compression },
+	};
+
+	parse_options(rdp_options, ARRAY_LENGTH(rdp_options), argc, argv);
+
+	ivi->simple_output_configure = rdp_backend_output_configure;
+	ret = weston_compositor_load_backend(ivi->compositor, WESTON_BACKEND_RDP, &config.base);
+
+	free(config.bind_address);
+	free(config.rdp_key);
+	free(config.server_cert);
+	free(config.server_key);
+
+	return ret;
+}
+#else
+static int
+load_rdp_backend(struct ivi_compositor *ivi, int *argc, char **argv)
+{
+	return -1;
+}
+#endif
+
+
 static int
 load_backend(struct ivi_compositor *ivi, const char *backend,
 	     int *argc, char *argv[])
@@ -1211,6 +1365,8 @@ load_backend(struct ivi_compositor *ivi, const char *backend,
 		return load_x11_backend(ivi, argc, argv);
 	} else if (strcmp(backend, "headless-backend.so") == 0) {
 		return load_headless_backend(ivi, argc, argv);
+	} else if (strcmp(backend, "rdp-backend.so") == 0) {
+		return load_rdp_backend(ivi, argc, argv);
 	}
 
 	weston_log("fatal: unknown backend '%s'.\n", backend);
@@ -1828,6 +1984,7 @@ int wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_da
 	weston_compositor_add_heads_changed_listener(ivi.compositor,
 						     &ivi.heads_changed);
 
+	weston_compositor_flush_heads_changed(ivi.compositor);
 	if (ivi_desktop_init(&ivi) < 0)
 		goto error_compositor;
 
@@ -1875,8 +2032,6 @@ int wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_da
 	}
 
 	add_bindings(ivi.compositor);
-
-	weston_compositor_flush_heads_changed(ivi.compositor);
 
 	if (ivi.remoting_api)
 		ivi_enable_remote_outputs(&ivi);
