@@ -272,9 +272,8 @@ global_remove(void *data, struct wl_registry *reg, uint32_t id)
 	(void) id;
 
 	for (std::list<global_data>::iterator it = sh->globals.begin();
-			it != sh->globals.end(); it++) {
-		sh->globals.erase(it);
-	}
+			it != sh->globals.end(); it = sh->globals.erase(it))
+		;
 }
 
 static const struct wl_registry_listener registry_listener = {
@@ -395,9 +394,8 @@ destroy_shell_data(struct shell_data *sh)
                 destroy_output(w_output);
 
        for (std::list<global_data>::iterator it = sh->globals.begin();
-		       it != sh->globals.end(); it++) {
-	       sh->globals.erase(it);
-       }
+		       it != sh->globals.end(); it = sh->globals.erase(it))
+	       ;
 
         wl_display_flush(sh->wl_display);
         wl_display_disconnect(sh->wl_display);
