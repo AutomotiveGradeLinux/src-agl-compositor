@@ -1281,6 +1281,9 @@ rdp_backend_output_configure(struct weston_output *output)
 		weston_rdp_output_get_api(output->compositor);
 	int width = 640;
 	int height = 480;
+	struct weston_config_section *section;
+	uint32_t transform = WL_OUTPUT_TRANSFORM_NORMAL;
+	char *transform_string;
 
 	assert(parsed_options);
 
@@ -1289,6 +1292,8 @@ rdp_backend_output_configure(struct weston_output *output)
 		return -1;
 	}
 
+	section = weston_config_get_section(ivi->config, "rdp", NULL, NULL);
+
 	if (parsed_options->width)
 		width = parsed_options->width;
 
@@ -1296,7 +1301,26 @@ rdp_backend_output_configure(struct weston_output *output)
 		height = parsed_options->height;
 
 	weston_output_set_scale(output, 1);
-	weston_output_set_transform(output, WL_OUTPUT_TRANSFORM_NORMAL);
+
+	weston_config_section_get_int(section, "width",
+			&width, width);
+
+	weston_config_section_get_int(section, "height",
+			&height, height);
+
+	if (parsed_options->transform)
+		transform = parsed_options->transform;
+
+	weston_config_section_get_string(section, "transform",
+			&transform_string, "normal");
+
+	if (parse_transform(transform_string, &transform) < 0) {
+		weston_log("Invalid transform \"%s\" for output %s\n",
+			   transform_string, output->name);
+		return -1;
+	}
+
+	weston_output_set_transform(output, transform);
 
 	if (api->output_set_size(output, width, height) < 0) {
 		weston_log("Cannot configure output \"%s\" using weston_rdp_output_api.\n",
@@ -1312,6 +1336,7 @@ load_rdp_backend(struct ivi_compositor *ivi, int *argc, char **argv)
 {
 	struct weston_rdp_backend_config config = {};
 	int ret = 0;
+	struct weston_config_section *section;
 
 	struct ivi_output_config *parsed_options = ivi_init_parsed_options(ivi->compositor);
 	if (!parsed_options)
@@ -1323,6 +1348,8 @@ load_rdp_backend(struct ivi_compositor *ivi, int *argc, char **argv)
 		{ WESTON_OPTION_BOOLEAN, "env-socket", 0, &config.env_socket },
 		{ WESTON_OPTION_INTEGER, "width", 0, &parsed_options->width },
 		{ WESTON_OPTION_INTEGER, "height", 0, &parsed_options->height },
+		{ WESTON_OPTION_INTEGER, "transform", 0, &parsed_options->transform },
+		{ WESTON_OPTION_INTEGER, "scale", 0, &parsed_options->scale },
 		{ WESTON_OPTION_STRING,  "address", 0, &config.bind_address },
 		{ WESTON_OPTION_INTEGER, "port", 0, &config.port },
 		{ WESTON_OPTION_BOOLEAN, "no-clients-resize", 0, &config.no_clients_resize },
@@ -1331,6 +1358,15 @@ load_rdp_backend(struct ivi_compositor *ivi, int *argc, char **argv)
 		{ WESTON_OPTION_STRING,  "rdp-tls-key", 0, &config.server_key },
 		{ WESTON_OPTION_BOOLEAN, "force-no-compression", 0, &config.force_no_compression },
 	};
+
+	section = weston_config_get_section(ivi->config, "rdp", NULL, NULL);
+
+	weston_config_section_get_string(section, "tls-cert",
+			&config.server_cert, config.server_cert);
+
+	weston_config_section_get_string(section, "tls-key",
+			&config.server_key, config.server_key);
+
 
 	parse_options(rdp_options, ARRAY_LENGTH(rdp_options), argc, argv);
 
