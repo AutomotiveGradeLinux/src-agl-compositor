@@ -72,7 +72,7 @@ to_ivi_compositor(struct weston_compositor *ec)
 	return weston_compositor_get_user_data(ec);
 }
 
-static struct ivi_output_config *
+struct ivi_output_config *
 ivi_init_parsed_options(struct weston_compositor *compositor)
 {
 	struct ivi_compositor *ivi = to_ivi_compositor(compositor);

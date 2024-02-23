@@ -558,5 +558,7 @@ void
 _ivi_set_shell_surface_split(struct ivi_surface *surface, struct ivi_output *output,
 			     uint32_t orientation, uint32_t width, int32_t sticky,
 			     bool to_activate);
+struct ivi_output_config *
+ivi_init_parsed_options(struct weston_compositor *compositor);
 
 #endif
