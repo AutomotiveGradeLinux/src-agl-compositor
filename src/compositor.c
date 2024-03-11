@@ -329,8 +329,7 @@ ivi_ensure_output(struct ivi_compositor *ivi, char *name,
 
 	if (ivi->simple_output_configure) {
 		output->output =
-			weston_compositor_create_output_with_head(ivi->compositor,
-								  head);
+			weston_compositor_create_output(ivi->compositor, head, head->name);
 		if (!output->output) {
 			free(output->name);
 			free(output);
@@ -356,7 +355,7 @@ ivi_ensure_output(struct ivi_compositor *ivi, char *name,
 
 	} else {
 		output->output =
-			weston_compositor_create_output(ivi->compositor, name);
+			weston_compositor_create_output(ivi->compositor, head, name);
 		if (!output->output) {
 			free(output->name);
 			free(output);
@@ -1105,6 +1104,10 @@ load_drm_backend(struct ivi_compositor *ivi, int *argc, char *argv[],
 	if (without_input)
 		ivi->compositor->require_input = !without_input;
 
+	ivi->heads_changed.notify = heads_changed;
+	weston_compositor_add_heads_changed_listener(ivi->compositor,
+						     &ivi->heads_changed);
+
 	if (!weston_compositor_load_backend(ivi->compositor, WESTON_BACKEND_DRM,
 					    &config.base))
 		return -1;
@@ -1116,6 +1119,8 @@ load_drm_backend(struct ivi_compositor *ivi, int *argc, char *argv[],
 	}
 
 	load_remoting_plugin(ivi, ivi->config);
+
+	return 0;
 
 error:
 	free(config.gbm_format);
@@ -1269,7 +1274,6 @@ load_x11_backend(struct ivi_compositor *ivi, int *argc, char *argv[],
 	};
 	int no_input = 0;
 	int output_count;
-	int ret;
 	bool force_pixman = false;
 
 	const struct weston_option options[] = {
@@ -1286,11 +1290,8 @@ load_x11_backend(struct ivi_compositor *ivi, int *argc, char *argv[],
 		config.renderer = WESTON_RENDERER_AUTO;
 	config.no_input = no_input;
 
-	ret = weston_compositor_load_backend(ivi->compositor, WESTON_BACKEND_X11,
-					     &config.base);
-
-	if (ret < 0)
-		return ret;
+	if (!weston_compositor_load_backend(ivi->compositor, WESTON_BACKEND_X11, &config.base))
+		return -1;
 
 	ivi->window_api = weston_windowed_output_get_api(ivi->compositor);
 	if (!ivi->window_api) {
@@ -1315,7 +1316,6 @@ load_headless_backend(struct ivi_compositor *ivi, int *argc, char **argv,
 		      enum weston_renderer_type renderer)
 {
 	struct weston_headless_backend_config config = {};
-	int ret = 0;
 
 	bool force_pixman = false;
 	bool fullscreen;
@@ -1350,10 +1350,8 @@ load_headless_backend(struct ivi_compositor *ivi, int *argc, char **argv,
 	config.base.struct_size = sizeof(struct weston_headless_backend_config);
 
 	/* load the actual headless-backend and configure it */
-	ret = weston_compositor_load_backend(c, WESTON_BACKEND_HEADLESS,
-					     &config.base);
-	if (ret < 0)
-		return ret;
+	if (!weston_compositor_load_backend(c, WESTON_BACKEND_HEADLESS, &config.base))
+		return -1;
 
 	ivi->window_api = weston_windowed_output_get_api(c);
 	if (!ivi->window_api) {
@@ -1456,7 +1454,6 @@ static int
 load_rdp_backend(struct ivi_compositor *ivi, int *argc, char **argv)
 {
 	struct weston_rdp_backend_config config = {};
-	int ret = 0;
 	struct weston_config_section *section;
 
 	struct ivi_output_config *parsed_options = ivi_init_parsed_options(ivi->compositor);
@@ -1492,14 +1489,15 @@ load_rdp_backend(struct ivi_compositor *ivi, int *argc, char **argv)
 	parse_options(rdp_options, ARRAY_LENGTH(rdp_options), argc, argv);
 
 	ivi->simple_output_configure = rdp_backend_output_configure;
-	ret = weston_compositor_load_backend(ivi->compositor, WESTON_BACKEND_RDP, &config.base);
+	if (!weston_compositor_load_backend(ivi->compositor, WESTON_BACKEND_RDP, &config.base))
+		return -1;
 
 	free(config.bind_address);
 	free(config.rdp_key);
 	free(config.server_cert);
 	free(config.server_key);
 
-	return ret;
+	return 0;
 }
 #else
 static int
@@ -1526,19 +1524,23 @@ load_backend(struct ivi_compositor *ivi, int *argc, char **argv,
 		weston_log("Error: unknown renderer \"%s\"\n", renderer_name);
 		return -1;
 	}
-	if (strcmp(backend, "drm-backend.so") == 0) {
-		return load_drm_backend(ivi, argc, argv);
-	} else if (strcmp(backend, "wayland-backend.so") == 0) {
-		return load_wayland_backend(ivi, argc, argv);
-	} else if (strcmp(backend, "x11-backend.so") == 0) {
-		return load_x11_backend(ivi, argc, argv);
-	} else if (strcmp(backend, "headless-backend.so") == 0) {
-		return load_headless_backend(ivi, argc, argv);
-	} else if (strcmp(backend, "rdp-backend.so") == 0) {
-		return load_rdp_backend(ivi, argc, argv);
 
-	weston_log("fatal: unknown backend '%s'.\n", backend_name);
-	return -1;
+	switch (backend) {
+	case WESTON_BACKEND_DRM:
+		return load_drm_backend(ivi, argc, argv, renderer);
+	case WESTON_BACKEND_HEADLESS:
+		return load_headless_backend(ivi, argc, argv, renderer);
+	case WESTON_BACKEND_RDP:
+		return load_rdp_backend(ivi, argc, argv);
+	case WESTON_BACKEND_WAYLAND:
+		return load_wayland_backend(ivi, argc, argv, renderer);
+	case WESTON_BACKEND_X11:
+		return load_x11_backend(ivi, argc, argv, renderer);
+	default:
+		assert(!"unknown backend type in load_backend()");
+	}
+
+	return 0;
 }
 
 static int
@@ -2151,11 +2153,11 @@ int wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_da
 		goto error_compositor;
 	}
 
-	ivi.heads_changed.notify = heads_changed;
-	weston_compositor_add_heads_changed_listener(ivi.compositor,
-						     &ivi.heads_changed);
+	if (weston_compositor_backends_loaded(ivi.compositor) < 0)
+                goto error_compositor;
 
 	weston_compositor_flush_heads_changed(ivi.compositor);
+
 	if (ivi_desktop_init(&ivi) < 0)
 		goto error_compositor;
 

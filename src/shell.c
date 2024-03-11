@@ -1866,6 +1866,7 @@ _ivi_set_shell_surface_split(struct ivi_surface *surface, struct ivi_output *iou
 	struct weston_view *ev = surface->view;
 	struct weston_geometry geom = {};
 	struct ivi_output *output = NULL;
+	struct weston_coord_global pos;
 
 	int new_width, new_height;
 	int x, y;
@@ -1970,7 +1971,10 @@ _ivi_set_shell_surface_split(struct ivi_surface *surface, struct ivi_output *iou
 			ivi_shell_activate_surface(surface, ivi_seat, WESTON_ACTIVATE_FLAG_NONE);
 	}
 
-	weston_view_set_position(surface->view, x, y);
+	pos.c.x = x;
+	pos.c.y = y;
+
+	weston_view_set_position(surface->view, pos);
 	weston_desktop_surface_set_size(surface->dsurface, new_width, new_height);
 	weston_desktop_surface_set_orientation(surface->dsurface, orientation);
 	surface->orientation = orientation;
