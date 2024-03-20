@@ -1324,6 +1324,7 @@ load_headless_backend(struct ivi_compositor *ivi, int *argc, char **argv,
 	int output_count;
 
 	struct weston_compositor *c = ivi->compositor;
+	struct weston_backend *wb = NULL;
 
 	const struct weston_option options[] = {
 		{ WESTON_OPTION_BOOLEAN, "use-pixman", false, &force_pixman },
@@ -1360,7 +1361,11 @@ load_headless_backend(struct ivi_compositor *ivi, int *argc, char **argv,
 		return -1;
 	}
 
-	if (ivi->window_api->create_head(c->backend, "headless") < 0) {
+	wb = weston_compositor_load_backend(ivi->compositor, WESTON_BACKEND_HEADLESS, &config.base);
+	if (!wb)
+		return -1;
+
+	if (ivi->window_api->create_head(wb, "headless") < 0) {
 		weston_log("Cannot create headless back-end\n");
 		return -1;
 	}
@@ -1404,6 +1409,7 @@ rdp_backend_output_configure(struct weston_output *output)
 	struct weston_config_section *section;
 	uint32_t transform = WL_OUTPUT_TRANSFORM_NORMAL;
 	char *transform_string;
+	struct weston_mode new_mode = {};
 
 	assert(parsed_options);
 
@@ -1440,13 +1446,12 @@ rdp_backend_output_configure(struct weston_output *output)
 		return -1;
 	}
 
-	weston_output_set_transform(output, transform);
 
-	if (api->output_set_size(output, width, height) < 0) {
-		weston_log("Cannot configure output \"%s\" using weston_rdp_output_api.\n",
-				output->name);
-		return -1;
-	}
+	new_mode.width = width;
+	new_mode.height = height;
+
+	api->output_set_mode(output, &new_mode);
+	weston_output_set_transform(output, transform);
 
 	return 0;
 }
