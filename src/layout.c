@@ -69,6 +69,8 @@ ivi_background_init(struct ivi_compositor *ivi, struct ivi_output *output)
 	struct weston_output *woutput = output->output;
 	struct ivi_surface *bg = output->background;
 	struct weston_view *view;
+	struct weston_surface *wsurface =
+		weston_desktop_surface_get_surface(bg->dsurface);
 
 	if (!bg) {
 		weston_log("WARNING: Output does not have a background\n");
@@ -78,17 +80,15 @@ ivi_background_init(struct ivi_compositor *ivi, struct ivi_output *output)
 	assert(bg->role == IVI_SURFACE_ROLE_BACKGROUND);
 
 	view = bg->view;
+	weston_surface_map(wsurface);
 
 	weston_view_set_output(view, woutput);
 	weston_view_set_position(view, woutput->pos);
 
+	weston_view_move_to_layer(view, &ivi->background.view_list);
 	weston_log("(background) position view %p, x %f, y %f, on output %s\n", view,
 			woutput->pos.c.x, woutput->pos.c.y, output->name);
 
-	view->is_mapped = true;
-	view->surface->is_mapped = true;
-
-	weston_layer_entry_insert(&ivi->background.view_list, &view->layer_link);
 }
 
 static void
@@ -100,6 +100,8 @@ ivi_panel_init(struct ivi_compositor *ivi, struct ivi_output *output,
 	struct weston_view *view;
 	struct weston_geometry geom;
 	struct weston_coord_global pos = woutput->pos;
+	struct weston_surface *wsurface =
+		weston_desktop_surface_get_surface(panel->dsurface);
 
 	if (!panel)
 		return;
@@ -137,16 +139,14 @@ ivi_panel_init(struct ivi_compositor *ivi, struct ivi_output *output,
 	weston_view_set_output(view, woutput);
 	weston_view_set_position(view, pos);
 
+	weston_surface_map(wsurface);
+	weston_view_move_to_layer(view, &ivi->panel.view_list);
+
 	weston_log("(panel) edge %d position view %p, x %f, y %f\n",
 			panel->panel.edge, view, pos.c.x, pos.c.y);
 
-	view->is_mapped = true;
-	view->surface->is_mapped = true;
-
 	weston_log("panel type %d inited on output %s\n", panel->panel.edge,
 			output->name);
-
-	weston_layer_entry_insert(&ivi->panel.view_list, &view->layer_link);
 }
 
 /*

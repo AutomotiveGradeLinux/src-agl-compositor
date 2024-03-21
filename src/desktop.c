@@ -318,7 +318,7 @@ desktop_surface_removed(struct weston_desktop_surface *dsurface, void *userdata)
 		output->active->view->is_mapped = false;
 		output->active->view->surface->is_mapped = false;
 
-		weston_layer_entry_remove(&output->active->view->layer_link);
+		weston_view_move_to_layer(output->active->view, NULL);
 		output->active = NULL;
 	}
 
