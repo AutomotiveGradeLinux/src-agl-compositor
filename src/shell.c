@@ -1103,6 +1103,7 @@ void
 remove_black_curtain(struct ivi_output *output)
 {
 	struct weston_view *view;
+	struct weston_surface *wsurface;
 
 	if ((!output &&
 	    !output->fullscreen_view.fs &&
@@ -1113,17 +1114,13 @@ remove_black_curtain(struct ivi_output *output)
 	}
 
 	view = output->fullscreen_view.fs->view;
+	wsurface = view->surface;
 	assert(view->is_mapped == true ||
 	       view->surface->is_mapped == true);
 
-	view->is_mapped = false;
-	view->surface->is_mapped = false;
+	weston_surface_unmap(wsurface);
 
-	weston_layer_entry_remove(&view->layer_link);
-	weston_view_update_transform(view);
-
-	weston_view_damage_below(view);
-
+	weston_view_move_to_layer(view, NULL);
 	weston_log("Removed black curtain from output %s\n", output->output->name);
 }
 
@@ -1131,6 +1128,7 @@ void
 insert_black_curtain(struct ivi_output *output)
 {
 	struct weston_view *view;
+	struct weston_surface *wsurface;
 
 	if ((!output &&
 	    !output->fullscreen_view.fs &&
@@ -1141,19 +1139,12 @@ insert_black_curtain(struct ivi_output *output)
 	}
 
 	view = output->fullscreen_view.fs->view;
+	wsurface = view->surface;
 	if (view->is_mapped || view->surface->is_mapped)
 		return;
 
-	weston_layer_entry_remove(&view->layer_link);
-	weston_layer_entry_insert(&output->ivi->fullscreen.view_list,
-				  &view->layer_link);
-
-	view->is_mapped = true;
-	view->surface->is_mapped = true;
-
-	weston_view_update_transform(view);
-	weston_view_damage_below(view);
-
+	weston_surface_map(wsurface);
+	weston_view_move_to_layer(view, &output->ivi->fullscreen.view_list);
 	weston_log("Added black curtain to output %s\n", output->output->name);
 }
 
