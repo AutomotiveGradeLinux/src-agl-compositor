@@ -1,5 +1,5 @@
 /*
- * Copyright © 2012-2021 Collabora, Ltd.
+ * Copyright © 2012-2024 Collabora, Ltd.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -327,15 +327,15 @@ ivi_ensure_output(struct ivi_compositor *ivi, char *name,
 	output->name = name;
 	output->config = config;
 
-	if (ivi->simple_output_configure) {
-		output->output =
-			weston_compositor_create_output(ivi->compositor, head, head->name);
-		if (!output->output) {
-			free(output->name);
-			free(output);
-			return NULL;
-		}
+	output->output =
+		weston_compositor_create_output(ivi->compositor, head, head->name);
+	if (!output->output) {
+		free(output->name);
+		free(output);
+		return NULL;
+	}
 
+	if (ivi->simple_output_configure) {
 		int ret = ivi->simple_output_configure(output->output);
 		if (ret < 0) {
 			weston_log("Configuring output \"%s\" failed.\n",
@@ -350,15 +350,6 @@ ivi_ensure_output(struct ivi_compositor *ivi, char *name,
 					weston_head_get_name(head));
 			weston_output_destroy(output->output);
 			ivi->init_failed = true;
-			return NULL;
-		}
-
-	} else {
-		output->output =
-			weston_compositor_create_output(ivi->compositor, head, name);
-		if (!output->output) {
-			free(output->name);
-			free(output);
 			return NULL;
 		}
 	}
