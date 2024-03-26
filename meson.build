@@ -171,17 +171,17 @@ if libweston_dep.found()
   if not meson.is_cross_build()
     if not prefix_path.contains('/usr')
       dir_path_x11_backend = join_paths(prefix_path, 'include', libweston_version, 'libweston', 'backend-x11.h')
-      dir_path_headless_backend = join_paths(prefix_path, 'include', libweston_version, 'libweston', 'backend-headless.h')
+      dir_path_wayland_backend = join_paths(prefix_path, 'include', libweston_version, 'libweston', 'backend-wayland.h')
       dir_path_rdp_backend = join_paths(prefix_path, 'include', libweston_version, 'libweston', 'backend-rdp.h')
     else
       dir_path_x11_backend = join_paths(libweston_version, 'libweston', 'backend-x11.h')
-      dir_path_headless_backend = join_paths(libweston_version, 'libweston', 'backend-headless.h')
-      dir_path_rdp = join_paths(libweston_version, 'libweston', 'backend-rdp.h')
+      dir_path_wayland_backend = join_paths(libweston_version, 'libweston', 'backend-wayland.h')
+      dir_path_rdp_backend = join_paths(libweston_version, 'libweston', 'backend-rdp.h')
     endif
   else
     message('Building with cross environment')
     dir_path_x11_backend = join_paths(libweston_version, 'libweston', 'backend-x11.h')
-    dir_path_headless_backend = join_paths(libweston_version, 'libweston', 'backend-headless.h')
+    dir_path_wayland_backend = join_paths(libweston_version, 'libweston', 'backend-wayland.h')
     dir_path_rdp_backend = join_paths(libweston_version, 'libweston', 'backend-rdp.h')
   endif
 
@@ -191,9 +191,9 @@ if libweston_dep.found()
     message('Building with X11 backend')
   endif
 
-  if cc.has_header(dir_path_headless_backend)
-    config_h.set('HAVE_BACKEND_HEADLESS', 1)
-    message('Building with headless backend')
+  if cc.has_header(dir_path_wayland_backend)
+    config_h.set('HAVE_BACKEND_WAYLAND', 1)
+    message('Building with Wayland backend')
   endif
 
   if cc.has_header(dir_path_rdp_backend)
