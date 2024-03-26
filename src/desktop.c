@@ -37,6 +37,20 @@
 #include "agl-shell-desktop-server-protocol.h"
 
 static void
+ivi_layout_destroy_saved_outputs(struct ivi_compositor *ivi)
+{
+	struct ivi_output *output, *output_next;
+
+	wl_list_for_each_safe(output, output_next, &ivi->saved_outputs, link) {
+		free(output->app_ids);
+		free(output->name);
+
+		wl_list_remove(&output->link);
+		free(output);
+	}
+}
+
+static void
 desktop_advertise_app(struct wl_listener *listener, void *data)
 {
 	struct ivi_surface *surface;
