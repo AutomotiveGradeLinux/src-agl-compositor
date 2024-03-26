@@ -532,7 +532,10 @@ void
 shell_send_app_state(struct ivi_compositor *ivi, const char *app_id,
 		     enum agl_shell_app_state state);
 void
-ivi_layout_destroy_saved_outputs(struct ivi_compositor *ivi);
+ivi_layout_restore(struct ivi_compositor *ivi, struct ivi_output *n_output);
+
+void
+ivi_layout_save(struct ivi_compositor *ivi, struct ivi_output *output);
 
 struct weston_output *
 get_default_output(struct weston_compositor *compositor);
