@@ -42,9 +42,6 @@
 #ifdef HAVE_BACKEND_RDP
 #include <libweston/backend-rdp.h>
 #endif
-#ifdef HAVE_BACKEND_HEADLESS
-#include <libweston/backend-headless.h>
-#endif
 #ifdef HAVE_BACKEND_X11
 #include <libweston/backend-x11.h>
 #endif
@@ -93,8 +90,6 @@ ivi_init_parsed_options(struct weston_compositor *compositor)
 	return config;
 }
 
-
-
 static void
 sigint_helper(int sig)
 {
@@ -117,10 +112,7 @@ struct {
 	enum weston_compositor_backend backend;
 } backend_name_map[] = {
 	{ "drm", "drm-backend.so", WESTON_BACKEND_DRM },
-	{ "headless", "headless-backend.so", WESTON_BACKEND_HEADLESS },
-	{ "pipewire", "pipewire-backend.so", WESTON_BACKEND_PIPEWIRE },
 	{ "rdp", "rdp-backend.so", WESTON_BACKEND_RDP },
-	{ "vnc", "vnc-backend.so", WESTON_BACKEND_VNC },
 	{ "wayland", "wayland-backend.so", WESTON_BACKEND_WAYLAND },
 	{ "x11", "x11-backend.so", WESTON_BACKEND_X11 },
 };
@@ -141,7 +133,6 @@ get_backend_from_string(const char *name,
 
 	return false;
 }
-
 
 bool
 get_renderer_from_string(const char *name, enum weston_renderer_type *renderer)
@@ -1302,75 +1293,6 @@ load_x11_backend(struct ivi_compositor *ivi, int *argc, char **argv,
 }
 #endif
 
-#ifdef HAVE_BACKEND_HEADLESS
-static int
-load_headless_backend(struct ivi_compositor *ivi, int *argc, char **argv,
-		      enum weston_renderer_type renderer)
-{
-	struct weston_headless_backend_config config = {};
-
-	bool force_pixman = false;
-	bool fullscreen;
-	bool force_gl = false;
-	int output_count;
-
-	struct weston_compositor *c = ivi->compositor;
-	struct weston_backend *wb = NULL;
-
-	const struct weston_option options[] = {
-		{ WESTON_OPTION_BOOLEAN, "use-pixman", false, &force_pixman },
-		{ WESTON_OPTION_BOOLEAN, "use-gl", false, &force_gl },
-	};
-
-	windowed_parse_common_options(ivi, argc, argv, &force_pixman,
-			&fullscreen, &output_count);
-
-	parse_options(options, ARRAY_LENGTH(options), argc, argv);
-
-	if ((force_pixman && force_gl) ||
-	    (renderer != WESTON_RENDERER_AUTO && (force_pixman || force_gl))) {
-		weston_log("Conflicting renderer specifications\n");
-		return -1;
-	} else if (force_pixman) {
-		config.renderer = WESTON_RENDERER_PIXMAN;
-	} else if (force_gl) {
-		config.renderer = WESTON_RENDERER_GL;
-	} else {
-		config.renderer = renderer;
-	}
-
-	config.base.struct_version = WESTON_HEADLESS_BACKEND_CONFIG_VERSION;
-	config.base.struct_size = sizeof(struct weston_headless_backend_config);
-
-	/* load the actual headless-backend and configure it */
-	if (!weston_compositor_load_backend(c, WESTON_BACKEND_HEADLESS, &config.base))
-		return -1;
-
-	ivi->window_api = weston_windowed_output_get_api(c);
-	if (!ivi->window_api) {
-		weston_log("Cannot use weston_windowed_output_api.\n");
-		return -1;
-	}
-
-	wb = weston_compositor_load_backend(ivi->compositor, WESTON_BACKEND_HEADLESS, &config.base);
-	if (!wb)
-		return -1;
-
-	if (ivi->window_api->create_head(wb, "headless") < 0) {
-		weston_log("Cannot create headless back-end\n");
-		return -1;
-	}
-
-	return 0;
-}
-#else
-static int
-load_headless_backend(struct ivi_compositor *ivi, int *argc, char **argv, enum weston_renderer_type renderer)
-{
-	return -1;
-}
-#endif
-
 #ifdef HAVE_BACKEND_RDP
 static void
 weston_rdp_backend_config_init(struct weston_rdp_backend_config *config)
@@ -1525,8 +1447,6 @@ load_backend(struct ivi_compositor *ivi, int *argc, char **argv,
 	switch (backend) {
 	case WESTON_BACKEND_DRM:
 		return load_drm_backend(ivi, argc, argv, renderer);
-	case WESTON_BACKEND_HEADLESS:
-		return load_headless_backend(ivi, argc, argv, renderer);
 	case WESTON_BACKEND_RDP:
 		return load_rdp_backend(ivi, argc, argv);
 	case WESTON_BACKEND_WAYLAND:
