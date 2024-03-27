@@ -61,6 +61,9 @@
 #include "remote.h"
 #endif
 
+#define WINDOWED_DEFAULT_WIDTH 1024
+#define WINDOWED_DEFAULT_HEIGHT 768
+
 static int cached_tm_mday = -1;
 static struct weston_log_scope *log_scope;
 
@@ -118,14 +121,13 @@ struct {
 };
 
 bool
-get_backend_from_string(const char *name,
-		enum weston_compositor_backend *backend)
+get_backend_from_string(const char *name, enum weston_compositor_backend *backend)
 {
 	size_t i;
 
 	for (i = 0; i < ARRAY_LENGTH(backend_name_map); i++) {
 		if (strcmp(name, backend_name_map[i].short_name) == 0 ||
-				strcmp(name, backend_name_map[i].long_name) == 0) {
+		    strcmp(name, backend_name_map[i].long_name) == 0) {
 			*backend = backend_name_map[i].backend;
 			return true;
 		}
@@ -312,63 +314,14 @@ add_head_destroyed_listener(struct weston_head *head)
 }
 
 static int
-drm_configure_output(struct ivi_output *output)
+ivi_configure_windowed_output_from_config(struct ivi_output *output,
+					  struct ivi_output_config *defaults)
 {
 	struct ivi_compositor *ivi = output->ivi;
 	struct weston_config_section *section = output->config;
-	enum weston_drm_backend_output_mode mode =
-		WESTON_DRM_BACKEND_OUTPUT_PREFERRED;
-	char *modeline = NULL;
-	char *gbm_format = NULL;
-	char *seat = NULL;
-
-	if (section) {
-		char *m;
-		weston_config_section_get_string(section, "mode", &m, "preferred");
-
-		/* This should have been handled earlier */
-		assert(strcmp(m, "off") != 0);
-
-		if (ivi->cmdline.use_current_mode || strcmp(m, "current") == 0) {
-			mode = WESTON_DRM_BACKEND_OUTPUT_CURRENT;
-		} else if (strcmp(m, "preferred") != 0) {
-			modeline = m;
-			m = NULL;
-		}
-		free(m);
-
-		weston_config_section_get_string(section, "gbm-format",
-						 &gbm_format, NULL);
-
-		weston_config_section_get_string(section, "seat", &seat, "");
-	}
-
-	if (ivi->drm_api->set_mode(output->output, mode, modeline) < 0) {
-		weston_log("Cannot configure output using weston_drm_output_api.\n");
-		free(modeline);
-		return -1;
-	}
-	free(modeline);
-
-	ivi->drm_api->set_gbm_format(output->output, gbm_format);
-	free(gbm_format);
-
-	ivi->drm_api->set_seat(output->output, seat);
-	free(seat);
-
-	return 0;
-}
-
-#define WINDOWED_DEFAULT_WIDTH 1024
-#define WINDOWED_DEFAULT_HEIGHT 768
-
-static int
-windowed_configure_output(struct ivi_output *output)
-{
-	struct ivi_compositor *ivi = output->ivi;
-	struct weston_config_section *section = output->config;
-	int width = WINDOWED_DEFAULT_WIDTH;
-	int height = WINDOWED_DEFAULT_HEIGHT;
+	int width;
+	int height;
+	int scale;
 
 	if (section) {
 		char *mode;
@@ -377,18 +330,24 @@ windowed_configure_output(struct ivi_output *output)
 		if (!mode || sscanf(mode, "%dx%d", &width, &height) != 2) {
 			weston_log("Invalid mode for output %s. Using defaults.\n",
 				   output->name);
-			width = WINDOWED_DEFAULT_WIDTH;
-			height = WINDOWED_DEFAULT_HEIGHT;
+			width = defaults->width;
+			height = defaults->height;
 		}
 		free(mode);
 	}
+
+	scale = defaults->scale;
 
 	if (ivi->cmdline.width)
 		width = ivi->cmdline.width;
 	if (ivi->cmdline.height)
 		height = ivi->cmdline.height;
+
 	if (ivi->cmdline.scale)
-		weston_output_set_scale(output->output, ivi->cmdline.scale);
+		scale = ivi->cmdline.scale;
+
+	weston_output_set_scale(output->output, scale);
+	weston_output_set_transform(output->output, defaults->transform);
 
 	if (ivi->window_api->output_set_size(output->output, width, height) < 0) {
 		weston_log("Cannot configure output '%s' using weston_windowed_output_api.\n",
@@ -396,7 +355,9 @@ windowed_configure_output(struct ivi_output *output)
 		return -1;
 	}
 
-	weston_log("Configured windowed_output_api to %dx%d\n", width, height);
+
+	weston_log("Configured windowed_output_api to %dx%d, scale %d\n",
+		   width, height, scale);
 
 	return 0;
 }
@@ -443,19 +404,17 @@ parse_activation_area(const char *geometry, struct ivi_output *output)
 }
 
 static int
-configure_output(struct ivi_output *output)
+drm_configure_output(struct ivi_output *output)
 {
 	struct ivi_compositor *ivi = output->ivi;
 	struct weston_config_section *section = output->config;
 	int32_t scale = 1;
 	uint32_t transform = WL_OUTPUT_TRANSFORM_NORMAL;
-
-	/*
-	 * This can happen with the wayland backend with 'sprawl'. The config
-	 * is hard-coded, so we don't need to do anything.
-	 */
-	if (!ivi->drm_api && !ivi->window_api)
-		return 0;
+	enum weston_drm_backend_output_mode mode =
+		WESTON_DRM_BACKEND_OUTPUT_PREFERRED;
+	char *modeline = NULL;
+	char *gbm_format = NULL;
+	char *seat = NULL;
 
 	if (section) {
 		char *t;
@@ -475,10 +434,41 @@ configure_output(struct ivi_output *output)
 	weston_output_set_scale(output->output, scale);
 	weston_output_set_transform(output->output, transform);
 
-	if (ivi->drm_api)
-		return drm_configure_output(output);
-	else
-		return windowed_configure_output(output);
+	if (section) {
+		char *m;
+		weston_config_section_get_string(section, "mode", &m, "preferred");
+
+		/* This should have been handled earlier */
+		assert(strcmp(m, "off") != 0);
+
+		if (ivi->cmdline.use_current_mode || strcmp(m, "current") == 0) {
+			mode = WESTON_DRM_BACKEND_OUTPUT_CURRENT;
+		} else if (strcmp(m, "preferred") != 0) {
+			modeline = m;
+			m = NULL;
+		}
+		free(m);
+
+		weston_config_section_get_string(section, "gbm-format",
+						 &gbm_format, NULL);
+
+		weston_config_section_get_string(section, "seat", &seat, "");
+	}
+
+	if (ivi->drm_api->set_mode(output->output, mode, modeline) < 0) {
+		weston_log("Cannot configure output using weston_drm_output_api.\n");
+		free(modeline);
+		return -1;
+	}
+	free(modeline);
+
+	ivi->drm_api->set_gbm_format(output->output, gbm_format);
+	free(gbm_format);
+
+	ivi->drm_api->set_seat(output->output, seat);
+	free(seat);
+
+	return 0;
 }
 
 /*
@@ -572,7 +562,7 @@ try_attach_enable_heads(struct ivi_output *output)
 
 	fail_len = try_attach_heads(output);
 
-	if (configure_output(output) < 0)
+	if (drm_configure_output(output) < 0)
 		return -1;
 
 	fail_len = try_enable_output(output, fail_len);
@@ -603,7 +593,7 @@ process_output(struct ivi_output *output)
 }
 
 static void
-head_disable(struct ivi_compositor *ivi, struct weston_head *head)
+drm_head_disable(struct ivi_compositor *ivi, struct weston_head *head)
 {
 	struct weston_output *output;
 	struct ivi_output *ivi_output;
@@ -673,7 +663,7 @@ find_controlling_output_config(struct weston_config *config,
 }
 
 static void
-head_prepare_enable(struct ivi_compositor *ivi, struct weston_head *head)
+drm_head_prepare_enable(struct ivi_compositor *ivi, struct weston_head *head)
 {
 	const char *name = weston_head_get_name(head);
 	struct weston_config_section *section;
@@ -712,7 +702,7 @@ head_prepare_enable(struct ivi_compositor *ivi, struct weston_head *head)
 }
 
 static void
-heads_changed(struct wl_listener *listener, void *arg)
+drm_heads_changed(struct wl_listener *listener, void *arg)
 {
 	struct weston_compositor *compositor = arg;
 	struct weston_head *head = NULL;
@@ -726,9 +716,9 @@ heads_changed(struct wl_listener *listener, void *arg)
 		bool non_desktop = weston_head_is_non_desktop(head);
 
 		if (connected && !enabled && !non_desktop)
-			head_prepare_enable(ivi, head);
+			drm_head_prepare_enable(ivi, head);
 		else if (!connected && enabled)
-			head_disable(ivi, head);
+			drm_head_disable(ivi, head);
 		else if (enabled && changed)
 			weston_log("Detected a monitor change on head '%s', "
 				   "not bothering to do anything about it.\n",
@@ -747,6 +737,90 @@ heads_changed(struct wl_listener *listener, void *arg)
 		}
 	}
 }
+
+static void
+simple_head_enable(struct ivi_compositor *ivi, struct weston_head *head)
+{
+	struct ivi_output *output;
+	struct weston_config_section *section;
+	char *output_name = NULL;
+	const char *name = weston_head_get_name(head);
+
+	section = find_controlling_output_config(ivi->config, name);
+	if (section) {
+		char *mode;
+
+		weston_config_section_get_string(section, "mode", &mode, NULL);
+		if (mode && strcmp(mode, "off") == 0) {
+			free(mode);
+			return;
+		}
+		free(mode);
+
+		weston_config_section_get_string(section, "name",
+						 &output_name, NULL);
+	} else {
+		output_name = strdup(name);
+	}
+
+	if (!output_name)
+		return;
+
+	output = ivi_ensure_output(ivi, output_name, section, head);
+	if (!output) {
+		weston_log("Failed to create output %s\n", output_name);
+		return;
+	}
+
+	add_head_destroyed_listener(head);
+}
+
+
+static void
+simple_head_disable(struct weston_head *head)
+{
+	struct weston_output *output;
+	struct wl_listener *listener;
+
+	listener = weston_head_get_destroy_listener(head, handle_head_destroy);
+	wl_list_empty(&listener->link);
+
+	output = weston_head_get_output(head);
+	assert(output);
+	weston_output_destroy(output);
+}
+
+
+static void
+simple_heads_changed(struct wl_listener *listener, void *arg)
+{
+	struct weston_compositor *compositor = arg;
+	struct ivi_compositor *ivi = to_ivi_compositor(compositor);
+	struct weston_head *head = NULL;
+	bool connected;
+	bool enabled;
+	bool changed;
+	bool non_desktop;
+
+	while ((head = weston_compositor_iterate_heads(ivi->compositor, head))) {
+		connected = weston_head_is_connected(head);
+		enabled = weston_head_is_enabled(head);
+		changed = weston_head_is_device_changed(head);
+		non_desktop = weston_head_is_non_desktop(head);
+
+		if (connected && !enabled && !non_desktop) {
+			simple_head_enable(ivi, head);
+		} else if (!connected && enabled) {
+			simple_head_disable(head);
+		} else if (enabled && changed) {
+			weston_log("Detected a monitor change on head '%s', "
+					"not bothering to do anything about it.\n",
+					weston_head_get_name(head));
+		}
+		weston_head_reset_device_changed(head);
+	}
+}
+
 
 #ifdef HAVE_REMOTING
 static int
@@ -996,7 +1070,7 @@ load_drm_backend(struct ivi_compositor *ivi, int *argc, char *argv[],
 	if (without_input)
 		ivi->compositor->require_input = !without_input;
 
-	ivi->heads_changed.notify = heads_changed;
+	ivi->heads_changed.notify = drm_heads_changed;
 	weston_compositor_add_heads_changed_listener(ivi->compositor,
 						     &ivi->heads_changed);
 
@@ -1097,6 +1171,20 @@ windowed_create_outputs(struct ivi_compositor *ivi, int output_count,
 	return 0;
 }
 
+
+static int
+wayland_backend_output_configure(struct weston_output *output)
+{
+	struct ivi_output_config defaults = {
+		.width = WINDOWED_DEFAULT_WIDTH,
+		.height = WINDOWED_DEFAULT_HEIGHT,
+		.scale = 1,
+		.transform = WL_OUTPUT_TRANSFORM_NORMAL
+	};
+
+	return ivi_configure_windowed_output_from_config(to_ivi_output(output), &defaults);
+}
+
 static int
 load_wayland_backend(struct ivi_compositor *ivi, int *argc, char *argv[],
 		     enum weston_renderer_type renderer)
@@ -1129,6 +1217,11 @@ load_wayland_backend(struct ivi_compositor *ivi, int *argc, char *argv[],
 	weston_config_section_get_int(section, "cursor-size",
 				      &config.cursor_size, 32);
 
+	ivi->simple_output_configure = wayland_backend_output_configure;
+	ivi->heads_changed.notify = simple_heads_changed;
+	weston_compositor_add_heads_changed_listener(ivi->compositor,
+						     &ivi->heads_changed);
+
 	ivi->backend = weston_compositor_load_backend(ivi->compositor, WESTON_BACKEND_WAYLAND,
 						      &config.base);
 
@@ -1155,6 +1248,19 @@ load_wayland_backend(struct ivi_compositor *ivi, int *argc, char *argv[],
 
 #ifdef HAVE_BACKEND_X11
 static int
+x11_backend_output_configure(struct weston_output *output)
+{
+	struct ivi_output_config defaults = {
+		.width = WINDOWED_DEFAULT_WIDTH,
+		.height = WINDOWED_DEFAULT_HEIGHT,
+		.scale = 1,
+		.transform = WL_OUTPUT_TRANSFORM_NORMAL
+	};
+
+	return ivi_configure_windowed_output_from_config(to_ivi_output(output), &defaults);
+}
+
+static int
 load_x11_backend(struct ivi_compositor *ivi, int *argc, char *argv[],
 		 enum weston_renderer_type renderer)
 {
@@ -1166,7 +1272,6 @@ load_x11_backend(struct ivi_compositor *ivi, int *argc, char *argv[],
 	};
 	int no_input = 0;
 	int output_count;
-	int ret;
 	bool force_pixman = false;
 
 	const struct weston_option options[] = {
@@ -1182,6 +1287,12 @@ load_x11_backend(struct ivi_compositor *ivi, int *argc, char *argv[],
 	else
 		config.renderer = WESTON_RENDERER_AUTO;
 	config.no_input = no_input;
+
+	ivi->simple_output_configure = x11_backend_output_configure;
+
+	ivi->heads_changed.notify = simple_heads_changed;
+	weston_compositor_add_heads_changed_listener(ivi->compositor,
+						     &ivi->heads_changed);
 
 	if (!weston_compositor_load_backend(ivi->compositor, WESTON_BACKEND_X11, &config.base))
 		return -1;
@@ -1318,7 +1429,13 @@ load_rdp_backend(struct ivi_compositor *ivi, int *argc, char **argv)
 	parse_options(rdp_options, ARRAY_LENGTH(rdp_options), argc, argv);
 
 	ivi->simple_output_configure = rdp_backend_output_configure;
-	if (!weston_compositor_load_backend(ivi->compositor, WESTON_BACKEND_RDP, &config.base))
+
+	ivi->heads_changed.notify = simple_heads_changed;
+	weston_compositor_add_heads_changed_listener(ivi->compositor,
+						     &ivi->heads_changed);
+
+	if (!weston_compositor_load_backend(ivi->compositor,
+					    WESTON_BACKEND_RDP, &config.base))
 		return -1;
 
 	free(config.bind_address);
