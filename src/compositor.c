@@ -182,6 +182,9 @@ to_ivi_output(struct weston_output *o)
 	struct ivi_output *output;
 
 	listener = weston_output_get_destroy_listener(o, handle_output_destroy);
+	if (!listener)
+		return NULL;
+
 	output = wl_container_of(listener, output, output_destroy);
 
 	return output;
@@ -238,6 +241,14 @@ ivi_ensure_output(struct ivi_compositor *ivi, char *name,
 		return NULL;
 	}
 
+	/* simple_output_configure might assume we have an ivi_output created
+	 * by this point, which we do but we can only link it to a
+	 * weston_output through the destroy listener, so install it earlier
+	 * before actually running the callback handler */
+	output->output_destroy.notify = handle_output_destroy;
+	weston_output_add_destroy_listener(output->output,
+					   &output->output_destroy);
+
 	if (ivi->simple_output_configure) {
 		int ret = ivi->simple_output_configure(output->output);
 		if (ret < 0) {
@@ -257,12 +268,10 @@ ivi_ensure_output(struct ivi_compositor *ivi, char *name,
 		}
 	}
 
-	output->output_destroy.notify = handle_output_destroy;
-	weston_output_add_destroy_listener(output->output,
-					   &output->output_destroy);
 
 	wl_list_insert(&ivi->outputs, &output->link);
 	ivi_output_configure_app_id(output);
+
 	return output;
 }
 
@@ -334,6 +343,9 @@ ivi_configure_windowed_output_from_config(struct ivi_output *output,
 			height = defaults->height;
 		}
 		free(mode);
+	} else {
+		width = defaults->width;
+		height = defaults->height;
 	}
 
 	scale = defaults->scale;
@@ -342,7 +354,6 @@ ivi_configure_windowed_output_from_config(struct ivi_output *output,
 		width = ivi->cmdline.width;
 	if (ivi->cmdline.height)
 		height = ivi->cmdline.height;
-
 	if (ivi->cmdline.scale)
 		scale = ivi->cmdline.scale;
 
@@ -1177,12 +1188,19 @@ windowed_create_outputs(struct ivi_compositor *ivi, int output_count,
 static int
 wayland_backend_output_configure(struct weston_output *output)
 {
+	struct ivi_output *ivi_output = to_ivi_output(output);
+
 	struct ivi_output_config defaults = {
 		.width = WINDOWED_DEFAULT_WIDTH,
 		.height = WINDOWED_DEFAULT_HEIGHT,
 		.scale = 1,
 		.transform = WL_OUTPUT_TRANSFORM_NORMAL
 	};
+
+	if (!ivi_output) {
+		weston_log("Failed to configure and enable Wayland output. No ivi-output available!\n");
+		return -1;
+	}
 
 	return ivi_configure_windowed_output_from_config(to_ivi_output(output), &defaults);
 }
@@ -1256,6 +1274,8 @@ load_wayland_backend(struct ivi_compositor *ivi, int *argc, char *argv[],
 static int
 x11_backend_output_configure(struct weston_output *output)
 {
+	struct ivi_output *ivi_output = to_ivi_output(output);
+
 	struct ivi_output_config defaults = {
 		.width = WINDOWED_DEFAULT_WIDTH,
 		.height = WINDOWED_DEFAULT_HEIGHT,
@@ -1263,7 +1283,13 @@ x11_backend_output_configure(struct weston_output *output)
 		.transform = WL_OUTPUT_TRANSFORM_NORMAL
 	};
 
-	return ivi_configure_windowed_output_from_config(to_ivi_output(output), &defaults);
+	if (!ivi_output) {
+		weston_log("Failed to configure and enable X11 output. No ivi-output available!\n");
+		return -1;
+	}
+
+
+	return ivi_configure_windowed_output_from_config(ivi_output, &defaults);
 }
 
 static int
