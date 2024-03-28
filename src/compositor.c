@@ -1075,8 +1075,10 @@ load_drm_backend(struct ivi_compositor *ivi, int *argc, char *argv[],
 						     &ivi->heads_changed);
 
 	if (!weston_compositor_load_backend(ivi->compositor, WESTON_BACKEND_DRM,
-					    &config.base))
+					    &config.base)) {
+		weston_log("Failed to load DRM backend\n");
 		return -1;
+	}
 
 	ivi->drm_api = weston_drm_output_get_api(ivi->compositor);
 	if (!ivi->drm_api) {
@@ -1222,8 +1224,12 @@ load_wayland_backend(struct ivi_compositor *ivi, int *argc, char *argv[],
 	weston_compositor_add_heads_changed_listener(ivi->compositor,
 						     &ivi->heads_changed);
 
-	ivi->backend = weston_compositor_load_backend(ivi->compositor, WESTON_BACKEND_WAYLAND,
+	ivi->backend = weston_compositor_load_backend(ivi->compositor,
+						      WESTON_BACKEND_WAYLAND,
 						      &config.base);
+	if (!ivi->backend) {
+		weston_log("Failed to create Wayland backend!\n");
+	}
 
 	free(config.cursor_theme);
 	free(config.display_name);
@@ -1294,8 +1300,13 @@ load_x11_backend(struct ivi_compositor *ivi, int *argc, char *argv[],
 	weston_compositor_add_heads_changed_listener(ivi->compositor,
 						     &ivi->heads_changed);
 
-	if (!weston_compositor_load_backend(ivi->compositor, WESTON_BACKEND_X11, &config.base))
+	ivi->backend = weston_compositor_load_backend(ivi->compositor,
+						      WESTON_BACKEND_X11,
+						      &config.base);
+	if (!ivi->backend) {
+		weston_log("Failed to create X11 backend!\n");
 		return -1;
+	}
 
 	ivi->window_api = weston_windowed_output_get_api(ivi->compositor);
 	if (!ivi->window_api) {
@@ -1435,8 +1446,10 @@ load_rdp_backend(struct ivi_compositor *ivi, int *argc, char **argv)
 						     &ivi->heads_changed);
 
 	if (!weston_compositor_load_backend(ivi->compositor,
-					    WESTON_BACKEND_RDP, &config.base))
+					    WESTON_BACKEND_RDP, &config.base)) {
+		weston_log("Failed to create RDP backend\n");
 		return -1;
+	}
 
 	free(config.bind_address);
 	free(config.rdp_key);
