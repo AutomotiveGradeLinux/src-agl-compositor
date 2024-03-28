@@ -175,8 +175,7 @@ ivi_panel_init(struct ivi_compositor *ivi, struct ivi_output *output,
 	struct weston_view *view;
 	struct weston_geometry geom;
 	struct weston_coord_global pos = woutput->pos;
-	struct weston_surface *wsurface =
-		weston_desktop_surface_get_surface(panel->dsurface);
+	struct weston_surface *wsurface;
 
 	if (!panel)
 		return;
@@ -185,6 +184,7 @@ ivi_panel_init(struct ivi_compositor *ivi, struct ivi_output *output,
 	dsurface = panel->dsurface;
 	view = panel->view;
 	geom = weston_desktop_surface_get_geometry(dsurface);
+	wsurface = weston_desktop_surface_get_surface(panel->dsurface);
 
 	weston_log("(panel) geom.width %d, geom.height %d, geom.x %d, geom.y %d\n",
 			geom.width, geom.height, geom.x, geom.y);
