@@ -1358,14 +1358,19 @@ weston_rdp_backend_config_init(struct weston_rdp_backend_config *config)
         config->base.struct_version = WESTON_RDP_BACKEND_CONFIG_VERSION;
         config->base.struct_size = sizeof(struct weston_rdp_backend_config);
 
+        config->renderer = WESTON_RENDERER_AUTO;
         config->bind_address = NULL;
         config->port = 3389;
         config->rdp_key = NULL;
         config->server_cert = NULL;
         config->server_key = NULL;
         config->env_socket = 0;
-        config->no_clients_resize = 1;
+        config->external_listener_fd = -1;
+        config->no_clients_resize = 0;
         config->force_no_compression = 0;
+        config->remotefx_codec = true;
+        config->refresh_rate = RDP_DEFAULT_FREQ;
+
 }
 
 static int
@@ -1421,6 +1426,8 @@ rdp_backend_output_configure(struct weston_output *output)
 	new_mode.width = width;
 	new_mode.height = height;
 
+	weston_log("Setting modeline to %dx%d\n", width, height);
+
 	api->output_set_mode(output, &new_mode);
 	weston_output_set_transform(output, transform);
 
@@ -1428,10 +1435,12 @@ rdp_backend_output_configure(struct weston_output *output)
 }
 
 static int
-load_rdp_backend(struct ivi_compositor *ivi, int *argc, char **argv)
+load_rdp_backend(struct ivi_compositor *ivi, int *argc, char **argv,
+		 enum weston_renderer_type renderer)
 {
 	struct weston_rdp_backend_config config = {};
 	struct weston_config_section *section;
+	bool no_remotefx_codec = false;
 
 	struct ivi_output_config *parsed_options = ivi_init_parsed_options(ivi->compositor);
 	if (!parsed_options)
@@ -1441,20 +1450,27 @@ load_rdp_backend(struct ivi_compositor *ivi, int *argc, char **argv)
 
 	const struct weston_option rdp_options[] = {
 		{ WESTON_OPTION_BOOLEAN, "env-socket", 0, &config.env_socket },
+		{ WESTON_OPTION_INTEGER, "external-listener-fd", 0, &config.external_listener_fd },
 		{ WESTON_OPTION_INTEGER, "width", 0, &parsed_options->width },
 		{ WESTON_OPTION_INTEGER, "height", 0, &parsed_options->height },
-		{ WESTON_OPTION_INTEGER, "transform", 0, &parsed_options->transform },
-		{ WESTON_OPTION_INTEGER, "scale", 0, &parsed_options->scale },
 		{ WESTON_OPTION_STRING,  "address", 0, &config.bind_address },
 		{ WESTON_OPTION_INTEGER, "port", 0, &config.port },
 		{ WESTON_OPTION_BOOLEAN, "no-clients-resize", 0, &config.no_clients_resize },
 		{ WESTON_OPTION_STRING,  "rdp4-key", 0, &config.rdp_key },
 		{ WESTON_OPTION_STRING,  "rdp-tls-cert", 0, &config.server_cert },
 		{ WESTON_OPTION_STRING,  "rdp-tls-key", 0, &config.server_key },
+		{ WESTON_OPTION_INTEGER, "scale", 0, &parsed_options->scale },
 		{ WESTON_OPTION_BOOLEAN, "force-no-compression", 0, &config.force_no_compression },
+		{ WESTON_OPTION_BOOLEAN, "no-remotefx-codec", 0, &no_remotefx_codec },
 	};
 
+	config.remotefx_codec = !no_remotefx_codec;
+	config.renderer = renderer;
+
 	section = weston_config_get_section(ivi->config, "rdp", NULL, NULL);
+
+	weston_config_section_get_int(section, "refresh-rate",
+			&config.refresh_rate, RDP_DEFAULT_FREQ);
 
 	weston_config_section_get_string(section, "tls-cert",
 			&config.server_cert, config.server_cert);
@@ -1464,6 +1480,7 @@ load_rdp_backend(struct ivi_compositor *ivi, int *argc, char **argv)
 
 
 	parse_options(rdp_options, ARRAY_LENGTH(rdp_options), argc, argv);
+	weston_log("No clients resize: %d\n", config.no_clients_resize);
 
 	ivi->simple_output_configure = rdp_backend_output_configure;
 
@@ -1514,7 +1531,7 @@ load_backend(struct ivi_compositor *ivi, int *argc, char **argv,
 	case WESTON_BACKEND_DRM:
 		return load_drm_backend(ivi, argc, argv, renderer);
 	case WESTON_BACKEND_RDP:
-		return load_rdp_backend(ivi, argc, argv);
+		return load_rdp_backend(ivi, argc, argv, renderer);
 	case WESTON_BACKEND_WAYLAND:
 		return load_wayland_backend(ivi, argc, argv, renderer);
 	case WESTON_BACKEND_X11:
