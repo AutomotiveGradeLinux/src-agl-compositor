@@ -220,6 +220,8 @@ if get_option('xwayland')
         config_h.set('BUILD_XWAYLAND', '1')
 
         srcs_agl_compositor += 'src/xwayland.c'
+        srcs_agl_compositor += 'shared/xalloc.c'
+        srcs_agl_compositor += 'shared/process-util.c'
         config_h.set_quoted('XSERVER_PATH', get_option('xwayland-path'))
 endif
 

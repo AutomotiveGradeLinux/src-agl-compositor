@@ -602,8 +602,8 @@ transform_handler(struct wl_listener *listener, void *data)
 	if (!weston_view_is_mapped(ivisurf->view))
 		return;
 
-	x = ivisurf->view->geometry.x;
-	y = ivisurf->view->geometry.y;
+	x = ivisurf->view->geometry.pos_offset.x;
+	y = ivisurf->view->geometry.pos_offset.y;
 
 	api->send_position(surface, x, y);
 #endif
