@@ -1503,7 +1503,8 @@ load_rdp_backend(struct ivi_compositor *ivi, int *argc, char **argv,
 }
 #else
 static int
-load_rdp_backend(struct ivi_compositor *ivi, int *argc, char **argv)
+load_rdp_backend(struct ivi_compositor *ivi, int *argc, char **argv,
+		 enum weston_renderer_type renderer)
 {
 	return -1;
 }
