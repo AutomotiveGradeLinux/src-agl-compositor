@@ -29,6 +29,7 @@
 #include <stdbool.h>
 #include "config.h"
 
+#include <weston.h>
 #include <libweston/backend-drm.h>
 #include <libweston/libweston.h>
 #include <libweston/windowed-output-api.h>
@@ -565,5 +566,8 @@ _ivi_set_shell_surface_split(struct ivi_surface *surface, struct ivi_output *out
 			     bool to_activate);
 struct ivi_output_config *
 ivi_init_parsed_options(struct weston_compositor *compositor);
+
+void
+ivi_process_destroy(struct wet_process *process, int status, bool call_cleanup);
 
 #endif

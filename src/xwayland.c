@@ -55,16 +55,6 @@ struct wet_xwayland {
 	struct wet_process *process;
 };
 
-static void
-process_destroy(struct wet_process *process, int status, bool call_cleanup)
-{
-        wl_list_remove(&process->link);
-        if (call_cleanup && process->cleanup)
-                process->cleanup(process, status, process->cleanup_data);
-        free(process->path);
-        free(process);
-}
-
 static int
 handle_display_fd(int fd, uint32_t mask, void *data)
 {
@@ -337,7 +327,7 @@ wet_xwayland_destroy(struct weston_compositor *compositor, void *data)
 	/* Calling this will call the process cleanup, in turn cleaning up the
 	 * client and the core Xwayland state */
 	if (wxw->process)
-		process_destroy(wxw->process, 0, true);
+		ivi_process_destroy(wxw->process, 0, true);
 
 	free(wxw);
 }

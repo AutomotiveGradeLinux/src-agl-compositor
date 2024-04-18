@@ -73,6 +73,16 @@ to_ivi_compositor(struct weston_compositor *ec)
 	return weston_compositor_get_user_data(ec);
 }
 
+void
+ivi_process_destroy(struct wet_process *process, int status, bool call_cleanup)
+{
+        wl_list_remove(&process->link);
+        if (call_cleanup && process->cleanup)
+                process->cleanup(process, status, process->cleanup_data);
+        free(process->path);
+        free(process);
+}
+
 struct ivi_output_config *
 ivi_init_parsed_options(struct weston_compositor *compositor)
 {
@@ -2034,6 +2044,7 @@ int wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_da
 	bool xwayland = false;
 	struct sigaction action;
 	char *renderer = NULL;
+	struct wet_process *process, *process_tmp;
 
 	const struct weston_option core_options[] = {
 		{ WESTON_OPTION_STRING, "renderer", 'r', &renderer },
@@ -2251,6 +2262,9 @@ error_compositor:
 	weston_log_ctx_destroy(log_ctx);
 
 	ivi_policy_destroy(ivi.policy);
+
+        wl_list_for_each_safe(process, process_tmp, &ivi.child_process_list, link)
+                ivi_process_destroy(process, 0, false);
 
 error_signals:
 	for (size_t i = 0; i < ARRAY_LENGTH(signals); ++i)
