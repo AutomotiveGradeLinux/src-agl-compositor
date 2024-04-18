@@ -73,6 +73,8 @@ struct ivi_compositor {
 	bool activate_by_default;
 	bool keep_pending_surfaces;
 
+	struct wl_listener screenshot_auth;
+
 	/*
 	 * Options parsed from command line arugments.
 	 * Overrides what is found in the config file.

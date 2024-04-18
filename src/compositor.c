@@ -104,6 +104,13 @@ ivi_init_parsed_options(struct weston_compositor *compositor)
 }
 
 static void
+screenshot_allow_all(struct wl_listener *l, struct weston_output_capture_attempt *att)
+{
+	att->authorized = true;
+}
+
+
+static void
 sigint_helper(int sig)
 {
        raise(SIGUSR2);
@@ -2237,8 +2244,11 @@ int wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_da
 	ivi_launch_shell_client(&ivi, "shell-client-ext",
 				&ivi.shell_client_ext.client);
 
-	if (debug)
-		ivi_screenshooter_create(&ivi);
+	if (debug) {
+		weston_compositor_add_screenshot_authority(ivi.compositor,
+					   &ivi.screenshot_auth,
+					   screenshot_allow_all);
+	}
 	ivi_agl_systemd_notify(&ivi);
 
 	wl_display_run(display);

@@ -1,20 +1,19 @@
 dep_wayland_client = dependency('wayland-client', version: '>= 1.17.0')
+dep_pixman = dependency('pixman-1', version: '>= 0.25.2')
 
 clients = [
 {
 	'basename': 'agl-screenshooter',
 	'sources': [
-	  'screenshooter.c',
+	  'screenshot.c',
 	  '../shared/file-util.c',
 	  '../shared/os-compatibility.c',
 	  '../shared/xalloc.c',
-	  agl_screenshooter_client_protocol_h,
-	  agl_screenshooter_protocol_c,
-	  xdg_output_unstable_v1_client_protocol_h,
-	  xdg_output_unstable_v1_protocol_c,
+	  weston_output_capture_protocol_c,
+	  weston_output_capture_client_protocol_h,
 	],
-	'deps_objs' : [ dep_wayland_client ],
-	'deps': [ 'cairo' ],
+	'deps_objs' : [ dep_wayland_client, dep_pixman ],
+	'deps': [ 'cairo', ],
 },
 ]
 

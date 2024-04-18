@@ -63,31 +63,34 @@ foreach depname : depnames
   deps_remoting += dep
 endforeach
 
-
 agl_shell_xml = files('protocol/agl-shell.xml')
 agl_shell_desktop_xml = files('protocol/agl-shell-desktop.xml')
-agl_screenshooter = files('protocol/agl-screenshooter.xml')
 xdg_shell_xml = join_paths(dir_wp_base, 'stable', 'xdg-shell', 'xdg-shell.xml')
+dep_libweston_protocols = dependency('libweston-13-protocols', version: '>= 13')
+dir_protocol_libweston = dep_libweston_protocols.get_pkgconfig_variable('pkgdatadir')
 
 protocols = [
   { 'name': 'agl-shell', 'source': 'internal' },
   { 'name': 'agl-shell-desktop', 'source': 'internal' },
-  { 'name': 'agl-screenshooter', 'source': 'internal' },
   { 'name': 'xdg-shell', 'source': 'wp-stable' },
   { 'name': 'xdg-output', 'source': 'unstable', 'version': 'v1' },
+  { 'name': 'weston-output-capture', 'source': 'libweston-protocols' },
 ]
 
 foreach proto: protocols
     proto_name = proto['name']
     if proto['source'] == 'internal'
         base_file = proto_name
-	xml_path = join_paths('protocol', '@0@.xml'.format(base_file))
+        xml_path = join_paths('protocol', '@0@.xml'.format(base_file))
+    elif proto['source'] == 'libweston-protocols'
+        base_file = proto_name
+        xml_path = join_paths(dir_protocol_libweston, '@0@.xml'.format(base_file))
     elif proto['source'] == 'wp-stable'
         base_file = proto_name
-	xml_path = join_paths(dir_wp_base, 'stable', proto_name, '@0@.xml'.format(base_file))
+        xml_path = join_paths(dir_wp_base, 'stable', proto_name, '@0@.xml'.format(base_file))
     else
         base_file = '@0@-unstable-@1@'.format(proto_name, proto['version'])
-	xml_path = join_paths(dir_wp_base, 'unstable', proto_name, '@0@.xml'.format(base_file))
+        xml_path = join_paths(dir_wp_base, 'unstable', proto_name, '@0@.xml'.format(base_file))
     endif
 
     foreach output_type: [ 'client-header', 'server-header', 'private-code' ]
@@ -136,17 +139,14 @@ srcs_agl_compositor = [
 	'src/layout.c',
 	'src/policy.c',
 	'src/shell.c',
-	'src/screenshooter.c',
 	'src/input.c',
 	'shared/option-parser.c',
 	'shared/os-compatibility.c',
 	'shared/process-util.c',
 	agl_shell_server_protocol_h,
 	agl_shell_desktop_server_protocol_h,
-	agl_screenshooter_server_protocol_h,
 	agl_shell_protocol_c,
 	agl_shell_desktop_protocol_c,
-	agl_screenshooter_protocol_c,
 	xdg_shell_protocol_c,
 ]
 
