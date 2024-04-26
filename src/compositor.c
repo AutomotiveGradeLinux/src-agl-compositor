@@ -1845,7 +1845,7 @@ log_timestamp(char *buf, size_t len)
 
 	strftime(timestr, sizeof(timestr), "%H:%M:%S", brokendown_time);
 	/* if datestr is empty it prints only timestr*/
-	snprintf(buf, len, "%s[%s.%03li]", datestr,
+	snprintf(buf, len, "%s[%s.%03"PRIi64"]", datestr,
 			timestr, (tv.tv_usec / 1000));
 
 	return buf;
