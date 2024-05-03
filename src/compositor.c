@@ -57,6 +57,7 @@
 #include "config.h"
 #include "agl-shell-server-protocol.h"
 
+#include "drm-lease.h"
 
 #define WINDOWED_DEFAULT_WIDTH 1024
 #define WINDOWED_DEFAULT_HEIGHT 768
@@ -901,14 +902,17 @@ load_drm_backend(struct ivi_compositor *ivi, int *argc, char *argv[],
 	};
 	struct weston_config_section *section;
 	int use_current_mode = 0;
+	int ret = -1;
 	bool force_pixman = false;
 	bool use_shadow;
 	bool without_input = false;
 	struct ivi_backend *ivi_backend = NULL;
+	char *drm_lease_name = NULL;
 
 	const struct weston_option options[] = {
 		{ WESTON_OPTION_STRING, "seat", 0, &config.seat_id },
 		{ WESTON_OPTION_STRING, "drm-device", 0, &config.specific_device },
+		{ WESTON_OPTION_STRING, "drm-lease", 0, &drm_lease_name },
 		{ WESTON_OPTION_BOOLEAN, "current-mode", 0, &use_current_mode },
 		{ WESTON_OPTION_BOOLEAN, "use-pixman", 0, &force_pixman },
 		{ WESTON_OPTION_BOOLEAN, "continue-without-input", false, &without_input }
@@ -930,6 +934,10 @@ load_drm_backend(struct ivi_compositor *ivi, int *argc, char *argv[],
 				       &config.pageflip_timeout, 0);
 	weston_config_section_get_bool(section, "pixman-shadow", &use_shadow, 1);
 	config.use_pixman_shadow = use_shadow;
+
+	ret = setup_drm_lease(&ivi->drm_lease, &config, drm_lease_name);
+	if (ret < 0)
+		goto error;
 
 	if (without_input)
 		ivi->compositor->require_input = !without_input;
@@ -955,10 +963,13 @@ load_drm_backend(struct ivi_compositor *ivi, int *argc, char *argv[],
 		goto error;
 	}
 
+	free(drm_lease_name);
+
 	return 0;
 
 error:
 	free(config.gbm_format);
+	free(drm_lease_name);
 	free(config.seat_id);
 	return -1;
 }
@@ -2284,6 +2295,7 @@ error_compositor:
 	free(modules);
 	modules = NULL;
 
+	cleanup_drm_lease(ivi.drm_lease);
 	weston_compositor_destroy(ivi.compositor);
 
 	weston_log_scope_destroy(log_scope);

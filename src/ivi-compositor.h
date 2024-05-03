@@ -36,6 +36,7 @@
 #include <libweston/desktop.h>
 
 #include "remote.h"
+#include "drm-lease.h"
 
 #include "agl-shell-server-protocol.h"
 
@@ -148,6 +149,7 @@ struct ivi_compositor {
 
 	bool need_ivi_output_relayout;
 	struct wl_list child_process_list;
+	struct dlm_lease *drm_lease;
 };
 
 struct ivi_surface;

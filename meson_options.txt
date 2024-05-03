@@ -17,10 +17,15 @@ option(
     value: false,
     description: 'Build compositor with XWayland support. Disabled by default'
 )
-
 option(
         'xwayland-path',
         type: 'string',
         value: '/usr/bin/Xwayland',
         description: 'Xwayland: path to installed Xwayland binary'
+)
+option(
+	'drm-lease',
+	type: 'boolean',
+	value: false,
+	description: 'Support for running weston with a leased DRM Master'
 )

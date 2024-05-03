@@ -138,6 +138,7 @@ srcs_agl_compositor = [
 	'src/policy.c',
 	'src/shell.c',
 	'src/input.c',
+	'src/drm-lease.c',
 	'shared/option-parser.c',
 	'shared/os-compatibility.c',
 	'shared/process-util.c',
@@ -157,6 +158,11 @@ elif policy_to_install == 'rba'
   srcs_agl_compositor += ['src/policy-rba.c', 'src/rba_adapter.cpp']
   deps_libweston += dependency('librba')
   message('Installing rba policy')
+endif
+
+if get_option('drm-lease')
+  deps_libweston += dependency('libdlmclient')
+  config_h.set('HAVE_DRM_LEASE', '1')
 endif
 
 # From meson documentation:
