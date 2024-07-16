@@ -144,14 +144,14 @@ ivi_background_init(struct ivi_compositor *ivi, struct ivi_output *output)
 	struct weston_output *woutput = output->output;
 	struct ivi_surface *bg = output->background;
 	struct weston_view *view;
-	struct weston_surface *wsurface =
-		weston_desktop_surface_get_surface(bg->dsurface);
+	struct weston_surface *wsurface;
 
 	if (!bg) {
 		weston_log("WARNING: Output does not have a background\n");
 		return;
 	}
 
+	wsurface = weston_desktop_surface_get_surface(bg->dsurface);
 	assert(bg->role == IVI_SURFACE_ROLE_BACKGROUND);
 
 	view = bg->view;
