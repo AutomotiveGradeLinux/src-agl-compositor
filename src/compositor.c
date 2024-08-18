@@ -948,9 +948,9 @@ remote_output_init(struct ivi_output *ivi_output,
 				output_name);
 		goto err;
 	}
-
+#if 0
 	weston_output_lazy_align(ivi_output->output);
-
+#endif
 	if ((ret = weston_output_enable(ivi_output->output)) < 0) {
 		weston_log("Enabling remoted output \"%s\" failed.\n",
 				output_name);
