@@ -572,4 +572,7 @@ ivi_init_parsed_options(struct weston_compositor *compositor);
 void
 ivi_process_destroy(struct wet_process *process, int status, bool call_cleanup);
 
+void
+create_black_curtain_view(struct ivi_output *output);
+
 #endif

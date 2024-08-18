@@ -2051,6 +2051,7 @@ int wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_da
 	struct weston_log_subscriber *logger;
 	int ret = EXIT_FAILURE;
 	bool xwayland = false;
+	bool no_black_curtain = false;
 	struct sigaction action;
 	char *renderer = NULL;
 	struct wet_process *process, *process_tmp;
@@ -2064,6 +2065,7 @@ int wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_da
 		{ WESTON_OPTION_BOOLEAN, "version", 0, &version },
 		{ WESTON_OPTION_BOOLEAN, "no-config", 0, &no_config },
 		{ WESTON_OPTION_BOOLEAN, "debug", 0, &debug },
+		{ WESTON_OPTION_BOOLEAN, "no-black-curtain", false, &no_black_curtain },
 		{ WESTON_OPTION_STRING, "config", 'c', &config_file },
 		{ WESTON_OPTION_STRING, "modules", 0, &option_modules },
 		{ WESTON_OPTION_STRING, "debug-scopes", 'l', &debug_scopes },
@@ -2233,7 +2235,10 @@ int wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_da
 	if (create_listening_socket(display, socket_name) < 0)
 		goto error_compositor;
 
-	ivi_shell_init_black_fs(&ivi);
+	if (!no_black_curtain) {
+		weston_log("Installing black curtains\n");
+		ivi_shell_init_black_fs(&ivi);
+	}
 
 	ivi.compositor->exit = handle_exit;
 

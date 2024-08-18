@@ -46,9 +46,6 @@
 #include "agl-shell-server-protocol.h"
 #include "agl-shell-desktop-server-protocol.h"
 
-static void
-create_black_curtain_view(struct ivi_output *output);
-
 static uint32_t
 reverse_orientation(uint32_t orientation);
 
@@ -143,9 +140,11 @@ ivi_set_desktop_surface_remote(struct ivi_surface *surface)
 	/* if thew black surface view is mapped on the mean we need
 	 * to remove it in order to start showing the 'remote' surface
 	 * just being added */
-	view = output->fullscreen_view.fs->view;
-	if (view->is_mapped || view->surface->is_mapped)
-		remove_black_curtain(output);
+	if (output->fullscreen_view.fs) {
+		view = output->fullscreen_view.fs->view;
+		if (view->is_mapped || view->surface->is_mapped)
+			remove_black_curtain(output);
+	}
 
 	wl_list_insert(&ivi->surfaces, &surface->link);
 }
@@ -1034,8 +1033,7 @@ curtain_surface_committed(struct weston_surface *es, struct weston_coord_surface
 
 }
 
-
-static void
+void
 create_black_curtain_view(struct ivi_output *output)
 {
 	struct weston_surface *surface = NULL;
