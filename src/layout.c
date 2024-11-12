@@ -760,7 +760,7 @@ ivi_layout_fullscreen_committed(struct ivi_surface *surface)
 
 		surface->state = RESIZING;
 		weston_view_set_output(view, output->output);
-		weston_layer_entry_insert(&ivi->hidden.view_list, &view->layer_link);
+		weston_view_move_to_layer(view, &ivi->hidden.view_list);
 		return;
 	}
 
@@ -779,18 +779,12 @@ ivi_layout_fullscreen_committed(struct ivi_surface *surface)
 
 	/* this implies we resized correctly */
 	if (!weston_view_is_mapped(view) || surface->state != FULLSCREEN) {
-		weston_layer_entry_remove(&view->layer_link);
+		surface->state = FULLSCREEN;
 
 		weston_view_set_output(view, woutput);
 		weston_view_set_position(view, woutput->pos);
-		weston_layer_entry_insert(&ivi->fullscreen.view_list, &view->layer_link);
-
-		wsurface->is_mapped = true;
-		surface->view->is_mapped = true;
-		surface->state = FULLSCREEN;
-
-		weston_view_geometry_dirty(view);
-		weston_surface_damage(view->surface);
+		weston_surface_map(wsurface);
+		weston_view_move_to_layer(view, &ivi->fullscreen.view_list);
 
 		if (ivi_seat)
 			ivi_shell_activate_surface(surface, ivi_seat, WESTON_ACTIVATE_FLAG_NONE);
@@ -909,16 +903,12 @@ ivi_layout_split_committed(struct ivi_surface *surface)
 
 	weston_view_set_output(view, woutput);
 	weston_view_set_position(view, pos);
-	weston_layer_entry_insert(&ivi->normal.view_list, &view->layer_link);
 
-	weston_view_geometry_dirty(view);
-	weston_surface_damage(view->surface);
+	weston_surface_map(wsurface);
+	weston_view_move_to_layer(view, &ivi->normal.view_list);
 
 	if (ivi_seat)
 		ivi_shell_activate_surface(surface, ivi_seat, WESTON_ACTIVATE_FLAG_NONE);
-
-	wsurface->is_mapped = true;
-	surface->view->is_mapped = true;
 
 	shell_advertise_app_state(ivi, app_id,
 				  NULL, AGL_SHELL_DESKTOP_APP_STATE_ACTIVATED);
@@ -980,14 +970,15 @@ ivi_layout_popup_committed(struct ivi_surface *surface)
 	    !surface->mapped)
 		return;
 
-	if (surface->view->is_mapped || surface->state == HIDDEN)
+	if (weston_view_is_mapped(view) || surface->state == HIDDEN)
 		return;
 
 	assert(surface->role == IVI_SURFACE_ROLE_POPUP);
 
 	/* remove it from hidden layer if present */
-	if (ivi_surf_in_hidden_layer(ivi, surface))
-		weston_layer_entry_remove(&view->layer_link);
+	if (ivi_surf_in_hidden_layer(ivi, surface)) {
+		weston_view_move_to_layer(view, NULL);
+	}
 
 	weston_view_set_output(view, woutput);
 
@@ -1003,16 +994,12 @@ ivi_layout_popup_committed(struct ivi_surface *surface)
 		weston_view_set_mask(view, surface->popup.bb.x, surface->popup.bb.y,
 				     surface->popup.bb.width, surface->popup.bb.height);
 
-	weston_layer_entry_insert(&ivi->popup.view_list, &view->layer_link);
-
-	weston_view_geometry_dirty(view);
-	weston_surface_damage(view->surface);
+	weston_view_move_to_layer(view, &ivi->popup.view_list);
 
 	if (ivi_seat)
 		ivi_shell_activate_surface(surface, ivi_seat, WESTON_ACTIVATE_FLAG_NONE);
 
-	wsurface->is_mapped = true;
-	surface->view->is_mapped = true;
+	weston_surface_map(wsurface);
 
 	shell_advertise_app_state(ivi, app_id,
 				  NULL, AGL_SHELL_DESKTOP_APP_STATE_ACTIVATED);
@@ -1032,10 +1019,8 @@ ivi_layout_popup_re_add(struct ivi_surface *surface)
 		struct weston_surface *wsurface =
 			weston_desktop_surface_get_surface(dsurface);
 
-		weston_layer_entry_remove(&view->layer_link);
-
-		wsurface->is_mapped = false;
-		view->is_mapped = false;
+		weston_view_move_to_layer(view, NULL);
+		weston_surface_unmap(wsurface);
 	}
 
 	/* reset the activate by default in order to (still) allow the surface
@@ -1058,10 +1043,8 @@ ivi_layout_fullscreen_re_add(struct ivi_surface *surface)
 		struct weston_surface *wsurface =
 			weston_desktop_surface_get_surface(dsurface);
 
-		weston_layer_entry_remove(&view->layer_link);
-
-		wsurface->is_mapped = false;
-		view->is_mapped = false;
+		weston_view_move_to_layer(view, NULL);
+		weston_surface_unmap(wsurface);
 	}
 
 	/* reset the activate by default in order to (still) allow the surface
@@ -1124,18 +1107,16 @@ ivi_layout_reset_split_surfaces(struct ivi_compositor *ivi)
 		struct weston_view *ev = output->previous_active->view;
 		struct weston_output *woutput = output->output;
 
-		if (!weston_view_is_mapped(ev))
+		if (!weston_view_is_mapped(ev)) {
 			weston_view_update_transform(ev);
-		else
-			weston_layer_entry_remove(&ev->layer_link);
+		} else {
+			weston_surface_map(ev->surface);
+			weston_view_move_to_layer(ev, &ivi->normal.view_list);
+		}
 
-		ev->is_mapped = true;
-		ev->surface->is_mapped = true;
 		output->previous_active->mapped = true;
 
 		weston_view_set_output(ev, woutput);
-
-		weston_layer_entry_insert(&ivi->normal.view_list, &ev->layer_link);
 
 		_ivi_set_shell_surface_split(output->previous_active, NULL, 0,
 					     AGL_SHELL_TILE_ORIENTATION_NONE, false, false);
