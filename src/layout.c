@@ -515,8 +515,10 @@ ivi_layout_add_to_hidden_layer(struct ivi_surface *surf,
 			   ivi_output->area.width, ivi_output->area.height);
 
 		surf->hidden_layer_output = ivi_output;
+
 		weston_view_set_output(ev, ivi_output->output);
-		weston_layer_entry_insert(&ivi->hidden.view_list, &ev->layer_link);
+		weston_view_move_to_layer(ev, &ivi->hidden.view_list);
+
 		weston_log("Placed app_id %s, type %s in hidden layer on output %s\n",
 				app_id, ivi_layout_get_surface_role_name(surf),
 				ivi_output->output->name);
@@ -528,10 +530,6 @@ ivi_layout_add_to_hidden_layer(struct ivi_surface *surf,
 	/* we might have another output to activate */
 	if (surf->hidden_layer_output &&
 	    surf->hidden_layer_output != ivi_output) {
-		weston_layer_entry_remove(&ev->layer_link);
-		weston_view_geometry_dirty(ev);
-		weston_surface_damage(ev->surface);
-
 		if (ivi_output->area.width != surf->hidden_layer_output->area.width ||
 		    ivi_output->area.height != surf->hidden_layer_output->area.height) {
 			weston_desktop_surface_set_maximized(dsurf, true);
@@ -546,7 +544,7 @@ ivi_layout_add_to_hidden_layer(struct ivi_surface *surf,
 
 		surf->hidden_layer_output = ivi_output;
 		weston_view_set_output(ev, ivi_output->output);
-		weston_layer_entry_insert(&ivi->hidden.view_list, &ev->layer_link);
+		weston_view_move_to_layer(ev, &ivi->hidden.view_list);
 		weston_log("Placed app_id %s, type %s in hidden layer on output %s\n",
 				app_id, ivi_layout_get_surface_role_name(surf),
 				ivi_output->output->name);
