@@ -323,12 +323,6 @@ ivi_layout_activate_complete(struct ivi_output *output,
 	bool update_previous = true;
 	struct weston_coord_global pos;
 
-	if (weston_view_is_mapped(view)) {
-		weston_layer_entry_remove(&view->layer_link);
-	} else {
-		weston_view_update_transform(view);
-	}
-
 	if (output_has_black_curtain(output)) {
 		if (!output->background) {
 			weston_log("Found that we have no background surface "
@@ -340,11 +334,7 @@ ivi_layout_activate_complete(struct ivi_output *output,
 
 			/* use the black curtain as background when we have
 			 * none added by the shell client. */
-			weston_layer_entry_remove(&ev->layer_link);
-			weston_layer_entry_insert(&ivi->normal.view_list,
-						  &ev->layer_link);
-			weston_view_geometry_dirty(ev);
-			weston_surface_damage(ev->surface);
+			weston_view_move_to_layer(ev, &ivi->normal.view_list);
 		} else {
 			remove_black_curtain(output);
 		}
@@ -369,9 +359,6 @@ ivi_layout_activate_complete(struct ivi_output *output,
 		weston_desktop_surface_set_orientation(surf->dsurface,
 						       surf->orientation);
 	}
-	view->is_mapped = true;
-	surf->mapped = true;
-	view->surface->is_mapped = true;
 
 	/* handle a movement from one output to another */
 	if (surf->current_completed_output &&
@@ -382,10 +369,11 @@ ivi_layout_activate_complete(struct ivi_output *output,
 			struct weston_view *ev =
 				surf->current_completed_output->active->view;
 
-			weston_layer_entry_remove(&ev->layer_link);
 			surf->current_completed_output->previous_active =
 				surf->current_completed_output->active;
 			surf->current_completed_output->active = NULL;
+
+			weston_view_move_to_layer(ev, NULL);
 
 			/* damage all possible outputs to avoid stale views */
 			weston_compositor_damage_all(ivi->compositor);
@@ -396,11 +384,8 @@ ivi_layout_activate_complete(struct ivi_output *output,
 		/* keep the background surface mapped at all times */
 		if (output->active->role != IVI_SURFACE_ROLE_BACKGROUND &&
 		    !output->active->sticky) {
-
-			output->active->view->is_mapped = false;
-			output->active->view->surface->is_mapped = false;
-
-			weston_layer_entry_remove(&output->active->view->layer_link);
+			weston_surface_unmap(output->active->view->surface);
+			weston_view_move_to_layer(output->active->view, NULL);
 		}
 	}
 
@@ -422,9 +407,12 @@ ivi_layout_activate_complete(struct ivi_output *output,
 	output->active = surf;
 	surf->current_completed_output = output;
 
-	weston_layer_entry_insert(&ivi->normal.view_list, &view->layer_link);
-	weston_view_geometry_dirty(view);
-	weston_surface_damage(view->surface);
+	if (!weston_surface_is_mapped(view->surface)) {
+		weston_surface_map(view->surface);
+		weston_view_move_to_layer(view, &ivi->normal.view_list);
+	} else {
+		weston_view_update_transform(view);
+	}
 
 	if (ivi_seat)
 		ivi_shell_activate_surface(surf, ivi_seat, WESTON_ACTIVATE_FLAG_NONE);
