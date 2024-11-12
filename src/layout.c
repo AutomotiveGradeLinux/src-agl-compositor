@@ -1325,12 +1325,8 @@ ivi_layout_deactivate(struct ivi_compositor *ivi, const char *app_id)
 				struct weston_view *view;
 
 				view = ivi_output->active->view;
-				view->is_mapped = false;
-				view->surface->is_mapped = false;
-
-				weston_layer_entry_remove(&view->layer_link);
-				weston_view_geometry_dirty(view);
-				weston_surface_damage(view->surface);
+				weston_view_unmap(view);
+				weston_view_move_to_layer(view, NULL);
 				ivi_output->active = NULL;
 			}
 		} else {
@@ -1346,12 +1342,9 @@ ivi_layout_deactivate(struct ivi_compositor *ivi, const char *app_id)
 		   surf->role == IVI_SURFACE_ROLE_FULLSCREEN) {
 		struct weston_view *view  = surf->view;
 
-		weston_view_unmap(view);
 		surf->state = HIDDEN;
-
-		weston_layer_entry_remove(&view->layer_link);
-		weston_view_geometry_dirty(view);
-		weston_surface_damage(view->surface);
+		weston_view_unmap(view);
+		weston_view_move_to_layer(view, NULL);
 	}
 
 	shell_send_app_state(ivi, app_id, AGL_SHELL_APP_STATE_DEACTIVATED);
