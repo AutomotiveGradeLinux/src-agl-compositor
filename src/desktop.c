@@ -49,14 +49,6 @@ ivi_layout_destroy_saved_outputs(struct ivi_compositor *ivi)
 }
 
 static void
-desktop_advertise_app(struct wl_listener *listener, void *data)
-{
-	struct ivi_surface *surface;
-
-	surface = wl_container_of(listener, surface, listener_advertise_app);
-}
-
-static void
 desktop_ping_timeout(struct weston_desktop_client *dclient, void *userdata)
 {
 	/* not supported */
@@ -203,15 +195,8 @@ desktop_surface_added(struct weston_desktop_surface *dsurface, void *userdata)
 	surface->dsurface = dsurface;
 	surface->role = IVI_SURFACE_ROLE_NONE;
 	surface->mapped = false;
-	surface->advertised_on_launch = false;
 	surface->checked_pending = false;
 	wl_list_init(&surface->link);
-
-	wl_signal_init(&surface->signal_advertise_app);
-
-	surface->listener_advertise_app.notify = desktop_advertise_app;
-	wl_signal_add(&surface->signal_advertise_app,
-		      &surface->listener_advertise_app);
 
 	weston_desktop_surface_set_user_data(dsurface, surface);
 
@@ -293,10 +278,6 @@ desktop_surface_removed(struct weston_desktop_surface *dsurface, void *userdata)
 		ivi_seat = get_ivi_shell_seat(wseat);
 
 	output = ivi_layout_get_output_from_surface(surface);
-
-	wl_list_remove(&surface->listener_advertise_app.link);
-	surface->listener_advertise_app.notify = NULL;
-
 	app_id = weston_desktop_surface_get_app_id(dsurface);
 
 	/* special corner-case, pending_surfaces which are never activated or
@@ -434,9 +415,6 @@ desktop_committed(struct weston_desktop_surface *dsurface,
 		shell_send_app_state(ivi, app_id, AGL_SHELL_APP_STATE_STARTED);
 	}
 
-	if (!surface->advertised_on_launch &&
-	    !wl_list_empty(&surface->ivi->desktop_clients))
-		wl_signal_emit(&surface->signal_advertise_app, surface);
 
 	/* this repaint schedule is needed to allow resizing to work with the
 	 * help of the hidden layer:
