@@ -317,7 +317,6 @@ struct ivi_surface {
 		int32_t width, height;
 	} pending;
 	bool mapped;
-	bool advertised_on_launch;
 	bool checked_pending;
 	enum {
 		NORMAL,
@@ -337,9 +336,6 @@ struct ivi_surface {
 		struct ivi_split_surface split;
 		struct ivi_remote_surface remote;
 	};
-
-	struct wl_listener listener_advertise_app;
-	struct wl_signal signal_advertise_app;
 
 	struct {
 		bool is_set;
