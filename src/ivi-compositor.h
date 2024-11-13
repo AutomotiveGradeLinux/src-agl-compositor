@@ -92,7 +92,6 @@ struct ivi_compositor {
 	const struct weston_remoting_api *remoting_api;
 
 	struct wl_global *agl_shell;
-	struct wl_global *agl_shell_desktop;
 	struct wl_global *agl_shell_ext;
 
 	struct {
@@ -500,9 +499,6 @@ ivi_seat_init(struct ivi_compositor *ivi);
 void
 ivi_seat_reset_caps_sent(struct ivi_compositor *ivi);
 
-void
-agl_shell_desktop_advertise_application_id(struct ivi_compositor *ivi,
-					   struct ivi_surface *surface);
 void
 ivi_check_pending_surface_desktop(struct ivi_surface *surface,
 				  enum ivi_surface_role *role);
