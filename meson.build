@@ -64,14 +64,12 @@ foreach depname : depnames
 endforeach
 
 agl_shell_xml = files('protocol/agl-shell.xml')
-agl_shell_desktop_xml = files('protocol/agl-shell-desktop.xml')
 xdg_shell_xml = join_paths(dir_wp_base, 'stable', 'xdg-shell', 'xdg-shell.xml')
 dep_libweston_protocols = dependency('libweston-13-protocols', version: '>= 13')
 dir_protocol_libweston = dep_libweston_protocols.get_pkgconfig_variable('pkgdatadir')
 
 protocols = [
   { 'name': 'agl-shell', 'source': 'internal' },
-  { 'name': 'agl-shell-desktop', 'source': 'internal' },
   { 'name': 'xdg-shell', 'source': 'wp-stable' },
   { 'name': 'xdg-output', 'source': 'unstable', 'version': 'v1' },
   { 'name': 'weston-output-capture', 'source': 'libweston-protocols' },
@@ -144,9 +142,7 @@ srcs_agl_compositor = [
 	'shared/os-compatibility.c',
 	'shared/process-util.c',
 	agl_shell_server_protocol_h,
-	agl_shell_desktop_server_protocol_h,
 	agl_shell_protocol_c,
-	agl_shell_desktop_protocol_c,
 	xdg_shell_protocol_c,
 ]
 
@@ -266,7 +262,7 @@ pkgconfig.generate(
 )
 
 install_data(
-        [ agl_shell_xml, agl_shell_desktop_xml ],
+        [ agl_shell_xml ],
         install_dir: join_paths(dir_data, dir_data_agl_compositor)
 )
 

@@ -34,8 +34,6 @@
 #include <libweston/libweston.h>
 #include <libweston/desktop.h>
 
-#include "agl-shell-desktop-server-protocol.h"
-
 #define AGL_COMP_DEBUG
 
 static const char *ivi_roles_as_string[] = {
@@ -788,10 +786,6 @@ ivi_layout_fullscreen_committed(struct ivi_surface *surface)
 
 		if (ivi_seat)
 			ivi_shell_activate_surface(surface, ivi_seat, WESTON_ACTIVATE_FLAG_NONE);
-
-		shell_advertise_app_state(ivi, app_id,
-				NULL, AGL_SHELL_DESKTOP_APP_STATE_ACTIVATED);
-
 		weston_log("Activation completed for app_id %s, role %s, "
 			   "output %s\n", app_id,
 			   ivi_layout_get_surface_role_name(surface),
@@ -909,10 +903,6 @@ ivi_layout_split_committed(struct ivi_surface *surface)
 
 	if (ivi_seat)
 		ivi_shell_activate_surface(surface, ivi_seat, WESTON_ACTIVATE_FLAG_NONE);
-
-	shell_advertise_app_state(ivi, app_id,
-				  NULL, AGL_SHELL_DESKTOP_APP_STATE_ACTIVATED);
-
 	weston_log("Activation completed for app_id %s, role %s, output %s\n",
 			app_id, ivi_layout_get_surface_role_name(surface), output->name);
 }
@@ -1000,10 +990,6 @@ ivi_layout_popup_committed(struct ivi_surface *surface)
 		ivi_shell_activate_surface(surface, ivi_seat, WESTON_ACTIVATE_FLAG_NONE);
 
 	weston_surface_map(wsurface);
-
-	shell_advertise_app_state(ivi, app_id,
-				  NULL, AGL_SHELL_DESKTOP_APP_STATE_ACTIVATED);
-
 	weston_log("Activation completed for app_id %s, role %s, output %s\n",
 			app_id, ivi_layout_get_surface_role_name(surface), output->name);
 }

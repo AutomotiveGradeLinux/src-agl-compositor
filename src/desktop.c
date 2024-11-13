@@ -34,8 +34,6 @@
 #include <libweston/xwayland-api.h>
 #endif
 
-#include "agl-shell-desktop-server-protocol.h"
-
 static void
 ivi_layout_destroy_saved_outputs(struct ivi_compositor *ivi)
 {
@@ -56,8 +54,6 @@ desktop_advertise_app(struct wl_listener *listener, void *data)
 	struct ivi_surface *surface;
 
 	surface = wl_container_of(listener, surface, listener_advertise_app);
-
-	agl_shell_desktop_advertise_application_id(surface->ivi, surface);
 }
 
 static void
@@ -393,8 +389,6 @@ skip_output_asignment:
 			app_id, ivi_layout_get_surface_role_name(surface));
 
 	if (app_id && output && output->output) {
-		shell_advertise_app_state(output->ivi, app_id,
-					  NULL, AGL_SHELL_DESKTOP_APP_STATE_DESTROYED);
 		if (output->ivi->shell_client.ready)
 			shell_send_app_state(output->ivi, app_id, AGL_SHELL_APP_STATE_TERMINATED);
 	}

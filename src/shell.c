@@ -44,7 +44,6 @@
 #include "shared/process-util.h"
 
 #include "agl-shell-server-protocol.h"
-#include "agl-shell-desktop-server-protocol.h"
 
 static uint32_t
 reverse_orientation(uint32_t orientation);
@@ -53,117 +52,67 @@ const char *
 split_orientation_to_string(uint32_t orientation);
 
 void
-agl_shell_desktop_advertise_application_id(struct ivi_compositor *ivi,
-					   struct ivi_surface *surface)
-{
-	struct desktop_client *dclient;
-	static bool display_adv = false;
-
-	if (surface->advertised_on_launch)
-		return;
-
-	/* advertise to all desktop clients the new surface */
-	wl_list_for_each(dclient, &ivi->desktop_clients, link) {
-		const char *app_id =
-			weston_desktop_surface_get_app_id(surface->dsurface);
-		if (app_id == NULL) {
-			if (!display_adv) {
-				weston_log("WARNING app_is is null, unable to advertise\n");
-				display_adv = true;
-			}
-			return;
-		}
-		agl_shell_desktop_send_application(dclient->resource, app_id);
-		surface->advertised_on_launch = true;
-	}
-}
-
-void
 ivi_set_desktop_surface(struct ivi_surface *surface)
 {
 	struct ivi_compositor *ivi = surface->ivi;
 	assert(surface->role == IVI_SURFACE_ROLE_NONE);
 
 	surface->role = IVI_SURFACE_ROLE_DESKTOP;
-	wl_list_insert(&surface->ivi->surfaces, &surface->link);
-
-	agl_shell_desktop_advertise_application_id(ivi, surface);
+	wl_list_insert(&ivi->surfaces, &surface->link);
 }
 
-static void
+void
+ivi_set_desktop_surface_popup(struct ivi_surface *surface)
+{
+       struct ivi_compositor *ivi = surface->ivi;
+       assert(surface->role == IVI_SURFACE_ROLE_NONE);
+
+       surface->role = IVI_SURFACE_ROLE_POPUP;
+       wl_list_insert(&ivi->surfaces, &surface->link);
+}
+
+void
+ivi_set_desktop_surface_fullscreen(struct ivi_surface *surface)
+{
+       struct ivi_compositor *ivi = surface->ivi;
+       assert(surface->role == IVI_SURFACE_ROLE_NONE);
+
+       surface->role = IVI_SURFACE_ROLE_FULLSCREEN;
+       wl_list_insert(&ivi->surfaces, &surface->link);
+}
+
+void
+ivi_set_desktop_surface_remote(struct ivi_surface *surface)
+{
+       struct ivi_compositor *ivi = surface->ivi;
+       struct weston_view *view;
+       struct ivi_output *output = surface->remote.output;
+
+       assert(surface->role == IVI_SURFACE_ROLE_NONE);
+
+       /* remote type are the same as desktop just that client can tell
+        * the compositor to start on another output */
+       surface->role = IVI_SURFACE_ROLE_REMOTE;
+
+       /* if thew black surface view is mapped on the mean we need
+        * to remove it in order to start showing the 'remote' surface
+        * just being added */
+       if (output->fullscreen_view.fs) {
+               view = output->fullscreen_view.fs->view;
+               if (view->is_mapped || view->surface->is_mapped)
+                       remove_black_curtain(output);
+       }
+
+       wl_list_insert(&ivi->surfaces, &surface->link);
+}
+
+void
 ivi_set_background_surface(struct ivi_surface *surface)
 {
 	struct ivi_compositor *ivi = surface->ivi;
 	assert(surface->role == IVI_SURFACE_ROLE_BACKGROUND);
 
-	wl_list_insert(&surface->ivi->surfaces, &surface->link);
-	agl_shell_desktop_advertise_application_id(ivi, surface);
-}
-
-static void
-ivi_set_desktop_surface_popup(struct ivi_surface *surface)
-{
-	struct ivi_compositor *ivi = surface->ivi;
-	assert(surface->role == IVI_SURFACE_ROLE_NONE);
-
-	surface->role = IVI_SURFACE_ROLE_POPUP;
 	wl_list_insert(&ivi->surfaces, &surface->link);
-
-	agl_shell_desktop_advertise_application_id(ivi, surface);
-}
-
-static void
-ivi_set_desktop_surface_fullscreen(struct ivi_surface *surface)
-{
-	struct ivi_compositor *ivi = surface->ivi;
-	assert(surface->role == IVI_SURFACE_ROLE_NONE);
-
-	surface->role = IVI_SURFACE_ROLE_FULLSCREEN;
-	wl_list_insert(&ivi->surfaces, &surface->link);
-
-	agl_shell_desktop_advertise_application_id(ivi, surface);
-}
-
-static void
-ivi_set_desktop_surface_remote(struct ivi_surface *surface)
-{
-	struct ivi_compositor *ivi = surface->ivi;
-	struct weston_view *view;
-	struct ivi_output *output = surface->remote.output;
-
-	assert(surface->role == IVI_SURFACE_ROLE_NONE);
-
-	/* remote type are the same as desktop just that client can tell
-	 * the compositor to start on another output */
-	surface->role = IVI_SURFACE_ROLE_REMOTE;
-
-	/* if thew black surface view is mapped on the mean we need
-	 * to remove it in order to start showing the 'remote' surface
-	 * just being added */
-	if (output->fullscreen_view.fs) {
-		view = output->fullscreen_view.fs->view;
-		if (view->is_mapped || view->surface->is_mapped)
-			remove_black_curtain(output);
-	}
-
-	wl_list_insert(&ivi->surfaces, &surface->link);
-}
-
-
-static void
-ivi_set_desktop_surface_split(struct ivi_surface *surface)
-{
-	struct ivi_compositor *ivi = surface->ivi;
-	assert(surface->role == IVI_SURFACE_ROLE_NONE);
-
-	if (surface->split.orientation == AGL_SHELL_DESKTOP_APP_ROLE_SPLIT_VERTICAL)
-		surface->role = IVI_SURFACE_ROLE_SPLIT_V;
-	else
-		surface->role = IVI_SURFACE_ROLE_SPLIT_H;
-
-	wl_list_insert(&ivi->surfaces, &surface->link);
-
-	agl_shell_desktop_advertise_application_id(ivi, surface);
 }
 
 static struct pending_popup *
@@ -342,42 +291,6 @@ ivi_set_pending_desktop_surface_fullscreen(struct ivi_output *ioutput,
 	wl_list_insert(&ivi->fullscreen_pending_apps, &p_fullscreen->link);
 }
 
-static void
-ivi_set_pending_desktop_surface_split(struct ivi_output *ioutput,
-				      const char *app_id, uint32_t orientation)
-{
-	struct ivi_compositor *ivi = ioutput->ivi;
-	struct ivi_surface *surf;
-	size_t len_app_id = strlen(app_id);
-	struct pending_split *split;
-
-	if (orientation != AGL_SHELL_DESKTOP_APP_ROLE_SPLIT_VERTICAL &&
-	    orientation != AGL_SHELL_DESKTOP_APP_ROLE_SPLIT_HORIZONTAL)
-		return;
-
-	/* more than one is un-supported, do note we need to do
-	 * conversion for surface roles instead of using the protocol ones */
-	wl_list_for_each(surf, &ivi->surfaces, link)
-		if (surf->role == IVI_SURFACE_ROLE_SPLIT_V ||
-		    surf->role == IVI_SURFACE_ROLE_SPLIT_H)
-			return;
-
-	split = zalloc(sizeof(*split));
-	if (!split)
-		return;
-	split->app_id = zalloc(sizeof(char) * (len_app_id + 1));
-	if (!split->app_id) {
-		free(split);
-		return;
-	}
-	memcpy(split->app_id, app_id, len_app_id);
-
-	split->ioutput = ioutput;
-	split->orientation = orientation;
-
-	wl_list_insert(&ivi->split_pending_apps, &split->link);
-}
-
 void
 ivi_set_pending_desktop_surface_remote(struct ivi_output *ioutput,
 		const char *app_id)
@@ -433,116 +346,6 @@ ivi_remove_pending_desktop_surface_remote(struct pending_remote *remote)
 	free(remote);
 }
 
-static bool
-ivi_compositor_keep_pending_surfaces(struct ivi_surface *surface)
-{
-	return surface->ivi->keep_pending_surfaces;
-}
-
-static bool
-ivi_check_pending_desktop_surface_popup(struct ivi_surface *surface)
-{
-	struct ivi_compositor *ivi = surface->ivi;
-	struct pending_popup *p_popup, *next_p_popup;
-	const char *_app_id =
-			weston_desktop_surface_get_app_id(surface->dsurface);
-
-	if (wl_list_empty(&ivi->popup_pending_apps) || !_app_id)
-		return false;
-
-	wl_list_for_each_safe(p_popup, next_p_popup,
-			      &ivi->popup_pending_apps, link) {
-		if (!strcmp(_app_id, p_popup->app_id)) {
-			surface->popup.output = p_popup->ioutput;
-			surface->popup.x = p_popup->x;
-			surface->popup.y = p_popup->y;
-
-			surface->popup.bb.x = p_popup->bb.x;
-			surface->popup.bb.y = p_popup->bb.y;
-			surface->popup.bb.width = p_popup->bb.width;
-			surface->popup.bb.height = p_popup->bb.height;
-
-			if (!ivi_compositor_keep_pending_surfaces(surface))
-				ivi_remove_pending_desktop_surface_popup(p_popup);
-			return true;
-		}
-	}
-
-	return false;
-}
-
-static bool
-ivi_check_pending_desktop_surface_split(struct ivi_surface *surface)
-{
-	struct pending_split *split_surf, *next_split_surf;
-	struct ivi_compositor *ivi = surface->ivi;
-	const char *_app_id =
-			weston_desktop_surface_get_app_id(surface->dsurface);
-
-	if (wl_list_empty(&ivi->split_pending_apps) || !_app_id)
-		return false;
-
-	wl_list_for_each_safe(split_surf, next_split_surf,
-			      &ivi->split_pending_apps, link) {
-		if (!strcmp(_app_id, split_surf->app_id)) {
-			surface->split.output = split_surf->ioutput;
-			surface->split.orientation = split_surf->orientation;
-			if (!ivi_compositor_keep_pending_surfaces(surface))
-				ivi_remove_pending_desktop_surface_split(split_surf);
-			return true;
-		}
-	}
-
-	return false;
-}
-
-static bool
-ivi_check_pending_desktop_surface_fullscreen(struct ivi_surface *surface)
-{
-	struct pending_fullscreen *fs_surf, *next_fs_surf;
-	struct ivi_compositor *ivi = surface->ivi;
-	const char *_app_id =
-			weston_desktop_surface_get_app_id(surface->dsurface);
-
-	if (wl_list_empty(&ivi->fullscreen_pending_apps) || !_app_id)
-		return false;
-
-	wl_list_for_each_safe(fs_surf, next_fs_surf,
-			      &ivi->fullscreen_pending_apps, link) {
-		if (!strcmp(_app_id, fs_surf->app_id)) {
-			surface->fullscreen.output = fs_surf->ioutput;
-			if (!ivi_compositor_keep_pending_surfaces(surface))
-				ivi_remove_pending_desktop_surface_fullscreen(fs_surf);
-			return true;
-		}
-	}
-
-	return false;
-}
-
-static bool
-ivi_check_pending_desktop_surface_remote(struct ivi_surface *surface)
-{
-	struct pending_remote *remote_surf, *next_remote_surf;
-	struct ivi_compositor *ivi = surface->ivi;
-	const char *_app_id =
-		weston_desktop_surface_get_app_id(surface->dsurface);
-
-	if (wl_list_empty(&ivi->remote_pending_apps) || !_app_id)
-		return false;
-
-	wl_list_for_each_safe(remote_surf, next_remote_surf,
-			      &ivi->remote_pending_apps, link) {
-		if (!strcmp(_app_id, remote_surf->app_id)) {
-			surface->remote.output = remote_surf->ioutput;
-			if (!ivi_compositor_keep_pending_surfaces(surface))
-				ivi_remove_pending_desktop_surface_remote(remote_surf);
-			return true;
-		}
-	}
-
-	return false;
-}
 void
 ivi_check_pending_surface_desktop(struct ivi_surface *surface,
 				  enum ivi_surface_role *role)
@@ -609,7 +412,92 @@ ivi_check_pending_app_type(struct ivi_surface *surface, enum ivi_surface_role ro
 
 	return NULL;
 }
- 
+
+static bool
+ivi_compositor_keep_pending_surfaces(struct ivi_surface *surface)
+{
+	return surface->ivi->keep_pending_surfaces;
+}
+
+static bool
+ivi_check_pending_desktop_surface_popup(struct ivi_surface *surface)
+{
+	struct ivi_compositor *ivi = surface->ivi;
+	struct pending_popup *p_popup, *next_p_popup;
+	const char *_app_id =
+		weston_desktop_surface_get_app_id(surface->dsurface);
+
+	if (wl_list_empty(&ivi->popup_pending_apps) || !_app_id)
+		return false;
+
+	wl_list_for_each_safe(p_popup, next_p_popup,
+			&ivi->popup_pending_apps, link) {
+		if (!strcmp(_app_id, p_popup->app_id)) {
+			surface->popup.output = p_popup->ioutput;
+			surface->popup.x = p_popup->x;
+			surface->popup.y = p_popup->y;
+
+			surface->popup.bb.x = p_popup->bb.x;
+			surface->popup.bb.y = p_popup->bb.y;
+			surface->popup.bb.width = p_popup->bb.width;
+			surface->popup.bb.height = p_popup->bb.height;
+
+			if (!ivi_compositor_keep_pending_surfaces(surface))
+				ivi_remove_pending_desktop_surface_popup(p_popup);
+			return true;
+		}
+	}
+
+	return false;
+}
+
+static bool
+ivi_check_pending_desktop_surface_fullscreen(struct ivi_surface *surface)
+{
+	struct pending_fullscreen *fs_surf, *next_fs_surf;
+	struct ivi_compositor *ivi = surface->ivi;
+	const char *_app_id =
+		weston_desktop_surface_get_app_id(surface->dsurface);
+
+	if (wl_list_empty(&ivi->fullscreen_pending_apps) || !_app_id)
+		return false;
+
+	wl_list_for_each_safe(fs_surf, next_fs_surf,
+			&ivi->fullscreen_pending_apps, link) {
+		if (!strcmp(_app_id, fs_surf->app_id)) {
+			surface->fullscreen.output = fs_surf->ioutput;
+			if (!ivi_compositor_keep_pending_surfaces(surface))
+				ivi_remove_pending_desktop_surface_fullscreen(fs_surf);
+			return true;
+		}
+	}
+
+	return false;
+}
+
+static bool
+ivi_check_pending_desktop_surface_remote(struct ivi_surface *surface)
+{
+	struct pending_remote *remote_surf, *next_remote_surf;
+	struct ivi_compositor *ivi = surface->ivi;
+	const char *_app_id =
+		weston_desktop_surface_get_app_id(surface->dsurface);
+
+	if (wl_list_empty(&ivi->remote_pending_apps) || !_app_id)
+		return false;
+
+	wl_list_for_each_safe(remote_surf, next_remote_surf,
+			&ivi->remote_pending_apps, link) {
+		if (!strcmp(_app_id, remote_surf->app_id)) {
+			surface->remote.output = remote_surf->ioutput;
+			if (!ivi_compositor_keep_pending_surfaces(surface))
+				ivi_remove_pending_desktop_surface_remote(remote_surf);
+			return true;
+		}
+	}
+
+	return false;
+}
 
 void
 ivi_check_pending_desktop_surface(struct ivi_surface *surface)
@@ -620,13 +508,6 @@ ivi_check_pending_desktop_surface(struct ivi_surface *surface)
 	if (ret) {
 		ivi_set_desktop_surface_popup(surface);
 		ivi_layout_popup_committed(surface);
-		return;
-	}
-
-	ret = ivi_check_pending_desktop_surface_split(surface);
-	if (ret) {
-		ivi_set_desktop_surface_split(surface);
-		ivi_layout_split_committed(surface);
 		return;
 	}
 
@@ -784,7 +665,7 @@ ivi_shell_finalize(struct ivi_compositor *ivi)
 	weston_layer_fini(&ivi->fullscreen);
 }
 
-static void
+void
 ivi_shell_advertise_xdg_surfaces(struct ivi_compositor *ivi, struct wl_resource *resource)
 {
 	struct ivi_surface *surface;
@@ -796,7 +677,6 @@ ivi_shell_advertise_xdg_surfaces(struct ivi_compositor *ivi, struct wl_resource 
 			weston_log("WARNING app_is is null, unable to advertise\n");
 			return;
 		}
-		agl_shell_desktop_send_application(resource, app_id);
 	}
 }
 
@@ -1384,37 +1264,6 @@ shell_set_panel(struct wl_client *client,
 	weston_desktop_surface_set_size(dsurface, width, height);
 }
 
-void
-shell_advertise_app_state(struct ivi_compositor *ivi, const char *app_id,
-			  const char *data, uint32_t app_state)
-{
-	struct desktop_client *dclient;
-	uint32_t app_role;
-	struct ivi_surface *surf = ivi_find_app(ivi, app_id);
-	struct ivi_policy *policy = ivi->policy;
-
-	/* FIXME: should queue it here and see when binding agl-shell-desktop
-	 * if there are any to be sent */
-	if (!surf)
-		return;
-
-	if (!app_id)
-		return;
-
-	if (policy && policy->api.surface_advertise_state_change &&
-	    !policy->api.surface_advertise_state_change(surf, surf->ivi)) {
-		return;
-	}
-
-	app_role = surf->role;
-	if (app_role == IVI_SURFACE_ROLE_POPUP)
-		app_role = AGL_SHELL_DESKTOP_APP_ROLE_POPUP;
-
-	wl_list_for_each(dclient, &ivi->desktop_clients, link)
-		agl_shell_desktop_send_state_app(dclient->resource, app_id,
-						 data, app_state, app_role);
-}
-
 static void
 shell_activate_app(struct wl_client *client,
 		   struct wl_resource *shell_res,
@@ -1450,7 +1299,7 @@ shell_activate_app(struct wl_client *client,
 }
 
 static void
-shell_new_deactivate_app(struct wl_client *client, struct wl_resource *shell_res,
+shell_deactivate_app(struct wl_client *client, struct wl_resource *shell_res,
 			 const char *app_id)
 {
 	struct ivi_compositor *ivi = wl_resource_get_user_data(shell_res);
@@ -1625,34 +1474,6 @@ shell_set_app_normal(struct wl_client *client, struct wl_resource *shell_res,
 	weston_view_move_to_layer(surf->view, &ivi->hidden.view_list);
 	weston_compositor_schedule_repaint(ivi->compositor);
 
-}
-
-static void
-shell_desktop_activate_app(struct wl_client *client,
-			   struct wl_resource *shell_res,
-			   const char *app_id, const char *data,
-			   struct wl_resource *output_res)
-{
-	struct weston_head *head = weston_head_from_resource(output_res);
-	struct weston_output *woutput = weston_head_get_output(head);
-	struct ivi_output *output = to_ivi_output(woutput);
-
-	ivi_layout_activate(output, app_id);
-	shell_advertise_app_state(output->ivi, app_id,
-				  data, AGL_SHELL_DESKTOP_APP_STATE_ACTIVATED);
-}
-
-static void
-shell_deactivate_app(struct wl_client *client,
-		   struct wl_resource *shell_res,
-		   const char *app_id)
-{
-	struct desktop_client *dclient = wl_resource_get_user_data(shell_res);
-	struct ivi_compositor *ivi = dclient->ivi;
-
-	ivi_layout_deactivate(ivi, app_id);
-	shell_advertise_app_state(ivi, app_id,
-				  NULL, AGL_SHELL_DESKTOP_APP_STATE_DEACTIVATED);
 }
 
 static void
@@ -2102,7 +1923,7 @@ static const struct agl_shell_interface agl_shell_implementation = {
 	.activate_app = shell_activate_app,
 	.destroy = shell_destroy,
 	.set_activate_region = shell_set_activate_region,
-	.deactivate_app = shell_new_deactivate_app,
+	.deactivate_app = shell_deactivate_app,
 	.set_app_float = shell_set_app_float,
 	.set_app_normal = shell_set_app_normal,
 	.set_app_fullscreen = shell_set_app_fullscreen,
@@ -2116,38 +1937,6 @@ static const struct agl_shell_ext_interface agl_shell_ext_implementation = {
 	.destroy = shell_ext_destroy,
 	.doas_shell_client = shell_ext_doas,
 };
-
-static void
-shell_desktop_set_app_property(struct wl_client *client,
-			       struct wl_resource *shell_res,
-			       const char *app_id, uint32_t role,
-			       int x, int y, int bx, int by,
-			       int width, int height,
-			       struct wl_resource *output_res)
-{
-	struct weston_head *head = weston_head_from_resource(output_res);
-	struct weston_output *woutput = weston_head_get_output(head);
-	struct ivi_output *output = to_ivi_output(woutput);
-
-	switch (role) {
-	case AGL_SHELL_DESKTOP_APP_ROLE_POPUP:
-		ivi_set_pending_desktop_surface_popup(output, x, y, bx, by,
-						      width, height, app_id);
-		break;
-	case AGL_SHELL_DESKTOP_APP_ROLE_FULLSCREEN:
-		ivi_set_pending_desktop_surface_fullscreen(output, app_id);
-		break;
-	case AGL_SHELL_DESKTOP_APP_ROLE_SPLIT_VERTICAL:
-	case AGL_SHELL_DESKTOP_APP_ROLE_SPLIT_HORIZONTAL:
-		ivi_set_pending_desktop_surface_split(output, app_id, role);
-		break;
-	case AGL_SHELL_DESKTOP_APP_ROLE_REMOTE:
-		ivi_set_pending_desktop_surface_remote(output, app_id);
-		break;
-	default:
-		break;
-	}
-}
 
 void
 ivi_compositor_destroy_pending_surfaces(struct ivi_compositor *ivi)
@@ -2173,27 +1962,6 @@ ivi_compositor_destroy_pending_surfaces(struct ivi_compositor *ivi)
 			      &ivi->remote_pending_apps, link)
 		ivi_remove_pending_desktop_surface_remote(remote_surf);
 }
-
-static void
-shell_desktop_set_app_property_mode(struct wl_client *client,
-				    struct wl_resource *shell_res, uint32_t perm)
-{
-	struct desktop_client *dclient = wl_resource_get_user_data(shell_res);
-	if (perm) {
-		dclient->ivi->keep_pending_surfaces = true;
-	} else {
-		dclient->ivi->keep_pending_surfaces = false;
-		/* remove any previous pending surfaces */
-		ivi_compositor_destroy_pending_surfaces(dclient->ivi);
-	}
-}
-
-static const struct agl_shell_desktop_interface agl_shell_desktop_implementation = {
-	.activate_app = shell_desktop_activate_app,
-	.set_app_property = shell_desktop_set_app_property,
-	.deactivate_app = shell_deactivate_app,
-	.set_app_property_mode = shell_desktop_set_app_property_mode,
-};
 
 static void
 unbind_agl_shell(struct wl_resource *resource)
@@ -2357,58 +2125,6 @@ bind_agl_shell_ext(struct wl_client *client,
 	ivi->shell_client_ext.resource = resource;
 }
 
-static void
-unbind_agl_shell_desktop(struct wl_resource *resource)
-{
-	struct desktop_client *dclient = wl_resource_get_user_data(resource);
-
-	wl_list_remove(&dclient->link);
-	free(dclient);
-}
-
-static void
-bind_agl_shell_desktop(struct wl_client *client,
-		       void *data, uint32_t version, uint32_t id)
-{
-	struct ivi_compositor *ivi = data;
-	struct wl_resource *resource;
-	struct ivi_policy *policy;
-	struct desktop_client *dclient;
-	void *interface;
-
-	policy = ivi->policy;
-	interface  = (void *) &agl_shell_desktop_interface;
-	if (policy && policy->api.shell_bind_interface &&
-	    !policy->api.shell_bind_interface(client, interface)) {
-		wl_client_post_implementation_error(client,
-				"client not authorized to use agl_shell_desktop");
-		return;
-	}
-
-	dclient = zalloc(sizeof(*dclient));
-	if (!dclient) {
-		wl_client_post_no_memory(client);
-		return;
-	}
-
-	resource = wl_resource_create(client, &agl_shell_desktop_interface,
-				      version, id);
-	dclient->ivi = ivi;
-	if (!resource) {
-		wl_client_post_no_memory(client);
-		return;
-	}
-
-	wl_resource_set_implementation(resource, &agl_shell_desktop_implementation,
-				       dclient, unbind_agl_shell_desktop);
-
-	dclient->resource = resource;
-	wl_list_insert(&ivi->desktop_clients, &dclient->link);
-
-	/* advertise xdg surfaces */
-	ivi_shell_advertise_xdg_surfaces(ivi, resource);
-}
-
 int
 ivi_shell_create_global(struct ivi_compositor *ivi)
 {
@@ -2425,14 +2141,6 @@ ivi_shell_create_global(struct ivi_compositor *ivi)
 					      ivi, bind_agl_shell_ext);
 	if (!ivi->agl_shell_ext) {
 		weston_log("Failed to create agl_shell_ext global.\n");
-		return -1;
-	}
-
-	ivi->agl_shell_desktop = wl_global_create(ivi->compositor->wl_display,
-						  &agl_shell_desktop_interface, 2,
-						  ivi, bind_agl_shell_desktop);
-	if (!ivi->agl_shell_desktop) {
-		weston_log("Failed to create wayland global (agl_shell_desktop).\n");
 		return -1;
 	}
 
