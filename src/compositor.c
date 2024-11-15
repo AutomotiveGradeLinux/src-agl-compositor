@@ -39,9 +39,6 @@
 
 #include <libweston/backend-drm.h>
 #include <libweston/backend-wayland.h>
-#ifdef HAVE_BACKEND_RDP
-#include <libweston/backend-rdp.h>
-#endif
 #ifdef HAVE_BACKEND_X11
 #include <libweston/backend-x11.h>
 #endif
@@ -57,9 +54,6 @@
 #include "config.h"
 #include "agl-shell-server-protocol.h"
 
-#ifdef HAVE_REMOTING
-#include "remote.h"
-#endif
 
 #define WINDOWED_DEFAULT_WIDTH 1024
 #define WINDOWED_DEFAULT_HEIGHT 768
@@ -849,213 +843,6 @@ simple_heads_changed(struct wl_listener *listener, void *arg)
 	}
 }
 
-
-#ifdef HAVE_REMOTING
-static int
-drm_backend_remoted_output_configure(struct weston_output *output,
-				     struct weston_config_section *section,
-				     char *modeline,
-				     const struct weston_remoting_api *api)
-{
-	char *gbm_format = NULL;
-	char *seat = NULL;
-	char *host = NULL;
-	char *pipeline = NULL;
-	int port, ret;
-	int32_t scale = 1;
-	uint32_t transform = WL_OUTPUT_TRANSFORM_NORMAL;
-	char *trans;
-
-	ret = api->set_mode(output, modeline);
-	if (ret < 0) {
-		weston_log("Cannot configure an output \"%s\" using "
-				"weston_remoting_api. Invalid mode\n",
-				output->name);
-		return -1;
-	}
-
-	weston_config_section_get_int(section, "scale", &scale, 1);
-	weston_output_set_scale(output, scale);
-
-	weston_config_section_get_string(section, "transform", &trans, "normal");
-	if (parse_transform(trans, &transform) < 0) {
-		weston_log("Invalid transform \"%s\" for output %s\n",
-			   trans, output->name);
-	}
-	weston_output_set_transform(output, transform);
-
-	weston_config_section_get_string(section, "gbm-format",
-					 &gbm_format, NULL);
-	api->set_gbm_format(output, gbm_format);
-	free(gbm_format);
-
-	weston_config_section_get_string(section, "seat", &seat, "");
-
-	api->set_seat(output, seat);
-	free(seat);
-
-	weston_config_section_get_string(section, "gst-pipeline", &pipeline,
-			NULL);
-	if (pipeline) {
-		api->set_gst_pipeline(output, pipeline);
-		free(pipeline);
-		return 0;
-	}
-
-	weston_config_section_get_string(section, "host", &host, NULL);
-	weston_config_section_get_int(section, "port", &port, 0);
-	if (!host || port <= 0 || 65533 < port) {
-		weston_log("Cannot configure an output \"%s\". "
-				"Need to specify gst-pipeline or "
-				"host and port (1-65533).\n", output->name);
-	}
-	api->set_host(output, host);
-	free(host);
-	api->set_port(output, port);
-
-	return 0;
-}
-
-
-static int
-remote_output_init(struct ivi_output *ivi_output,
-		   struct weston_compositor *compositor,
-		   struct weston_config_section *section,
-		   const struct weston_remoting_api *api)
-{
-	char *output_name, *modeline = NULL;
-	int ret = -1;
-
-	weston_config_section_get_string(section, "name", &output_name, NULL);
-	if (!output_name)
-		return ret;
-
-	weston_config_section_get_string(section, "mode", &modeline, "off");
-	if (strcmp(modeline, "off") == 0)
-		goto err;
-
-	ivi_output->output = api->create_output(compositor, output_name);
-	if (!ivi_output->output) {
-		weston_log("Cannot create remoted output \"%s\".\n",
-				output_name);
-		goto err;
-	}
-
-	ret = drm_backend_remoted_output_configure(ivi_output->output, section,
-						   modeline, api);
-	if (ret < 0) {
-		weston_log("Cannot configure remoted output \"%s\".\n",
-				output_name);
-		goto err;
-	}
-
-	weston_output_lazy_align(ivi_output->output);
-
-	if ((ret = weston_output_enable(ivi_output->output)) < 0) {
-		weston_log("Enabling remoted output \"%s\" failed.\n",
-				output_name);
-		goto err;
-	}
-
-	free(modeline);
-	free(output_name);
-	weston_log("remoted output '%s' enabled\n", ivi_output->output->name);
-
-	return 0;
-
-err:
-	free(modeline);
-	free(output_name);
-	if (ivi_output->output)
-		weston_output_destroy(ivi_output->output);
-
-	return ret;
-}
-
-static void
-ivi_enable_remote_outputs(struct ivi_compositor *ivi)
-{
-	struct weston_config_section *remote_section = NULL;
-	const char *section_name;
-	struct weston_config *config = ivi->config;
-
-	while (weston_config_next_section(config, &remote_section, &section_name)) {
-		if (strcmp(section_name, "remote-output"))
-			continue;
-
-		struct ivi_output *ivi_output = NULL;
-		bool output_found = false;
-		char *_name = NULL;
-
-		weston_config_section_get_string(remote_section,
-						 "name", &_name, NULL);
-		wl_list_for_each(ivi_output, &ivi->outputs, link) {
-			if (!strcmp(ivi_output->name, _name)) {
-				output_found = true;
-				break;
-			}
-		}
-
-		if (output_found) {
-			free(_name);
-			continue;
-		}
-
-		ivi_output = zalloc(sizeof(*ivi_output));
-		if (!ivi_output) {
-			free(_name);
-			continue;
-		}
-
-		ivi_output->ivi = ivi;
-		ivi_output->name = _name;
-		ivi_output->config = remote_section;
-		ivi_output->type = OUTPUT_REMOTE;
-
-		if (remote_output_init(ivi_output, ivi->compositor,
-				       remote_section, ivi->remoting_api)) {
-			free(ivi_output->name);
-			free(ivi_output);
-			continue;
-		}
-
-		ivi_output->output_destroy.notify = handle_output_destroy;
-		weston_output_add_destroy_listener(ivi_output->output,
-						   &ivi_output->output_destroy);
-
-		wl_list_insert(&ivi->outputs, &ivi_output->link);
-		ivi_output_configure_app_id(ivi_output);
-	}
-}
-
-static int
-load_remoting_plugin(struct ivi_compositor *ivi, struct weston_config *config)
-{
-	struct weston_compositor *compositor = ivi->compositor;
-	int (*module_init)(struct weston_compositor *wc);
-
-	module_init = weston_load_module("remoting-plugin.so",
-					 "weston_module_init",
-					 LIBWESTON_MODULEDIR);
-	if (!module_init)
-		return -1;
-
-	if (module_init(compositor) < 0)
-		return -1;
-
-	ivi->remoting_api = weston_remoting_get_api(compositor);
-	if (!ivi->remoting_api)
-		return -1;
-	return 0;
-}
-#else
-static int
-load_remoting_plugin(struct weston_compositor *compositor, struct weston_config *config)
-{
-	return -1;
-}
-#endif
-
 static int
 load_drm_backend(struct ivi_compositor *ivi, int *argc, char *argv[],
 		 enum weston_renderer_type renderer)
@@ -1115,8 +902,6 @@ load_drm_backend(struct ivi_compositor *ivi, int *argc, char *argv[],
 		weston_log("Cannot use drm output api.\n");
 		goto error;
 	}
-
-	load_remoting_plugin(ivi, ivi->config);
 
 	return 0;
 
@@ -2228,9 +2013,6 @@ int wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_da
 	}
 
 	add_bindings(ivi.compositor);
-
-	if (ivi.remoting_api)
-		ivi_enable_remote_outputs(&ivi);
 
 	if (create_listening_socket(display, socket_name) < 0)
 		goto error_compositor;
