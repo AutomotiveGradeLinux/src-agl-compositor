@@ -59,14 +59,18 @@ struct ivi_output_config {
 	uint32_t transform;
 };
 
+struct ivi_backend {
+	struct weston_backend *backend;
+	struct wl_listener heads_changed;
+	int (*simple_output_configure)(struct weston_output *output);
+	struct wl_list link;
+};
+
 struct ivi_compositor {
 	struct weston_compositor *compositor;
-	struct weston_backend *backend;
 	struct weston_config *config;
 	struct ivi_output_config *parsed_options;
 
-	struct wl_listener heads_changed;
-	int (*simple_output_configure)(struct weston_output *output);
 
 	bool init_failed;
 	bool disable_cursor;
@@ -117,6 +121,7 @@ struct ivi_compositor {
 	struct wl_list outputs; /* ivi_output.link */
 	struct wl_list saved_outputs; /* ivi_output.link */
 	struct wl_list surfaces; /* ivi_surface.link */
+	struct wl_list backends;
 
 	struct weston_desktop *desktop;
 	struct wl_listener seat_created_listener;
