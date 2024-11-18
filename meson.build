@@ -169,16 +169,19 @@ if libweston_dep.found()
       dir_path_x11_backend = join_paths(prefix_path, 'include', libweston_version, 'libweston', 'backend-x11.h')
       dir_path_wayland_backend = join_paths(prefix_path, 'include', libweston_version, 'libweston', 'backend-wayland.h')
       dir_path_rdp_backend = join_paths(prefix_path, 'include', libweston_version, 'libweston', 'backend-rdp.h')
+      dir_path_pipewire_backend = join_paths(prefix_path, 'include', libweston_version, 'libweston', 'backend-pipewire.h')
     else
       dir_path_x11_backend = join_paths(libweston_version, 'libweston', 'backend-x11.h')
       dir_path_wayland_backend = join_paths(libweston_version, 'libweston', 'backend-wayland.h')
       dir_path_rdp_backend = join_paths(libweston_version, 'libweston', 'backend-rdp.h')
+      dir_path_pipewire_backend = join_paths(libweston_version, 'libweston', 'backend-pipewire.h')
     endif
   else
     message('Building with cross environment')
     dir_path_x11_backend = join_paths(libweston_version, 'libweston', 'backend-x11.h')
     dir_path_wayland_backend = join_paths(libweston_version, 'libweston', 'backend-wayland.h')
     dir_path_rdp_backend = join_paths(libweston_version, 'libweston', 'backend-rdp.h')
+    dir_path_pipewire_backend = join_paths(libweston_version, 'libweston', 'backend-pipewire.h')
   endif
 
   # do the test
@@ -195,6 +198,10 @@ if libweston_dep.found()
   if cc.has_header(dir_path_rdp_backend)
     config_h.set('HAVE_BACKEND_RDP', 1)
     message('Building with RDP backend')
+  endif
+  if cc.has_header(dir_path_pipewire_backend)
+    config_h.set('HAVE_BACKEND_PIPEWIRE', 1)
+    message('Building with PipeWire backend')
   endif
 endif
 
