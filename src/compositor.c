@@ -39,6 +39,9 @@
 
 #include <libweston/backend-drm.h>
 #include <libweston/backend-wayland.h>
+#ifdef HAVE_BACKEND_PIPEWIRE
+#include <libweston/backend-pipewire.h>
+#endif
 #ifdef HAVE_BACKEND_X11
 #include <libweston/backend-x11.h>
 #endif
@@ -127,6 +130,7 @@ struct {
 } backend_name_map[] = {
 	{ "drm", "drm-backend.so", WESTON_BACKEND_DRM },
 	{ "rdp", "rdp-backend.so", WESTON_BACKEND_RDP },
+	{ "pipewire", "pipewire-backend.so", WESTON_BACKEND_PIPEWIRE },
 	{ "wayland", "wayland-backend.so", WESTON_BACKEND_WAYLAND },
 	{ "x11", "x11-backend.so", WESTON_BACKEND_X11 },
 };
@@ -1314,6 +1318,119 @@ load_rdp_backend(struct ivi_compositor *ivi, int *argc, char **argv,
 }
 #endif
 
+#ifdef HAVE_BACKEND_PIPEWIRE
+static void
+pipewire_backend_config_init(struct weston_pipewire_backend_config *config)
+{
+	config->base.struct_version = WESTON_PIPEWIRE_BACKEND_CONFIG_VERSION;
+	config->base.struct_size = sizeof(struct weston_pipewire_backend_config);
+}
+
+static int
+pipewire_backend_output_configure(struct weston_output *output)
+{
+	int width = 640;
+	int height = 480;
+	struct ivi_compositor *ivi = to_ivi_compositor(output->compositor);
+	struct ivi_output_config *parsed_options = ivi->parsed_options;
+
+	const struct weston_pipewire_output_api *api =
+		weston_pipewire_output_get_api(output->compositor);
+	struct weston_config_section *section;
+	char *gbm_format = NULL;
+	uint32_t transform = WL_OUTPUT_TRANSFORM_NORMAL;
+	int scale = 1;
+
+	assert(parsed_options);
+
+	if (!api) {
+		weston_log("Cannot use weston_pipewire_output_api.\n");
+		return -1;
+	}
+
+	section = weston_config_get_section(ivi->config,
+					    "output", "name", output->name);
+
+	weston_config_section_get_int(section, "width", &width, width);
+	weston_config_section_get_int(section, "height", &height, height);
+
+	if (parsed_options->width)
+		width = parsed_options->width;
+
+	if (parsed_options->height)
+		height = parsed_options->height;
+
+	weston_config_section_get_string(section, "gbm-format", &gbm_format, NULL);
+
+	weston_output_set_scale(output, scale);
+	weston_output_set_transform(output, transform);
+
+	api->set_gbm_format(output, gbm_format);
+	free(gbm_format);
+
+	if (api->output_set_size(output, width, height) < 0) {
+		weston_log("Cannot configure output \"%s\" using weston_pipewire_output_api.\n",
+				output->name);
+		return -1;
+	}
+	weston_log("pipewire_backend_output_configure.. Done\n");
+
+	return 0;
+}
+
+
+static int
+load_pipewire_backend(struct ivi_compositor *ivi, int *argc, char **argv,
+		     enum weston_renderer_type renderer)
+{
+	struct weston_pipewire_backend_config config = {};
+	struct weston_config_section *section;
+	struct ivi_output_config *parsed_options =
+		ivi_init_parsed_options(ivi->compositor);
+
+	if (!parsed_options)
+		return -1;
+
+	pipewire_backend_config_init(&config);
+
+	const struct weston_option pipewire_options[] = {
+		{ WESTON_OPTION_INTEGER, "width", 0, &parsed_options->width },
+		{ WESTON_OPTION_INTEGER, "height", 0, &parsed_options->height },
+	};
+
+	parse_options(pipewire_options, ARRAY_LENGTH(pipewire_options), argc, argv);
+
+	config.renderer = renderer;
+
+	section = weston_config_get_section(ivi->config, "core", NULL, NULL);
+	weston_config_section_get_string(section, "gbm-format",
+					 &config.gbm_format, NULL);
+
+	section = weston_config_get_section(ivi->config, "pipewire", NULL, NULL);
+	weston_config_section_get_int(section, "num-outputs",
+				      &config.num_outputs, 1);
+
+	ivi->simple_output_configure = pipewire_backend_output_configure;
+	ivi->heads_changed.notify = simple_heads_changed;
+	weston_compositor_add_heads_changed_listener(ivi->compositor,
+						     &ivi->heads_changed);
+
+	if (!weston_compositor_load_backend(ivi->compositor,
+					    WESTON_BACKEND_PIPEWIRE, &config.base)) {
+		weston_log("Failed to create PipeWire backend\n");
+		return -1;
+	}
+
+	return 0;
+}
+#else
+static int
+load_pipewire_backend(struct ivi_compositor *ivi, int *argc, char **argv,
+		      enum weston_renderer_type renderer)
+{
+	return -1;
+}
+#endif
 
 static int
 load_backend(struct ivi_compositor *ivi, int *argc, char **argv,
@@ -1337,6 +1454,8 @@ load_backend(struct ivi_compositor *ivi, int *argc, char **argv,
 		return load_drm_backend(ivi, argc, argv, renderer);
 	case WESTON_BACKEND_RDP:
 		return load_rdp_backend(ivi, argc, argv, renderer);
+	case WESTON_BACKEND_PIPEWIRE:
+		return load_pipewire_backend(ivi, argc, argv, renderer);
 	case WESTON_BACKEND_WAYLAND:
 		return load_wayland_backend(ivi, argc, argv, renderer);
 	case WESTON_BACKEND_X11:
