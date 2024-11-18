@@ -101,6 +101,25 @@ ivi_init_parsed_options(struct weston_compositor *compositor)
 }
 
 static void
+ivi_backend_destroy(struct ivi_backend *b)
+{
+        wl_list_remove(&b->link);
+        wl_list_remove(&b->heads_changed.link);
+
+        free(b);
+}
+
+
+static void
+ivi_compositor_destroy_backends(struct ivi_compositor *ivi)
+{
+	struct ivi_backend *b, *tmp;
+
+	wl_list_for_each_safe(b, tmp, &ivi->backends, link)
+		ivi_backend_destroy(b);
+}
+
+static void
 screenshot_allow_all(struct wl_listener *l, struct weston_output_capture_attempt *att)
 {
 	att->authorized = true;
@@ -226,8 +245,8 @@ ivi_output_configure_app_id(struct ivi_output *ivi_output)
 }
 
 static struct ivi_output *
-ivi_ensure_output(struct ivi_compositor *ivi, char *name,
-		  struct weston_config_section *config,
+ivi_ensure_output(struct ivi_compositor *ivi, struct ivi_backend *ivi_backend, 
+		  char *name, struct weston_config_section *config,
 		  struct weston_head *head)
 {
 	struct ivi_output *output = NULL;
@@ -264,8 +283,8 @@ ivi_ensure_output(struct ivi_compositor *ivi, char *name,
 	weston_output_add_destroy_listener(output->output,
 					   &output->output_destroy);
 
-	if (ivi->simple_output_configure) {
-		int ret = ivi->simple_output_configure(output->output);
+	if (ivi_backend->simple_output_configure) {
+		int ret = ivi_backend->simple_output_configure(output->output);
 		if (ret < 0) {
 			weston_log("Configuring output \"%s\" failed.\n",
 					weston_head_get_name(head));
@@ -618,6 +637,19 @@ process_output(struct ivi_output *output)
 	return try_attach_enable_heads(output);
 }
 
+static struct weston_head *
+ivi_backend_iterate_heads(struct ivi_compositor *ivi, struct ivi_backend *wb,
+		struct weston_head *iter)
+{
+	while ((iter = weston_compositor_iterate_heads(ivi->compositor, iter))) {
+		if (iter->backend == wb->backend)
+			break;
+	}
+
+	return iter;
+}
+
+
 static void
 drm_head_disable(struct ivi_compositor *ivi, struct weston_head *head)
 {
@@ -689,7 +721,7 @@ find_controlling_output_config(struct weston_config *config,
 }
 
 static void
-drm_head_prepare_enable(struct ivi_compositor *ivi, struct weston_head *head)
+drm_head_prepare_enable(struct ivi_compositor *ivi, struct ivi_backend *ivi_backend, struct weston_head *head)
 {
 	const char *name = weston_head_get_name(head);
 	struct weston_config_section *section;
@@ -717,7 +749,7 @@ drm_head_prepare_enable(struct ivi_compositor *ivi, struct weston_head *head)
 	if (!output_name)
 		return;
 
-	output = ivi_ensure_output(ivi, output_name, section, head);
+	output = ivi_ensure_output(ivi, ivi_backend, output_name, section, head);
 	if (!output)
 		return;
 
@@ -734,15 +766,17 @@ drm_heads_changed(struct wl_listener *listener, void *arg)
 	struct weston_head *head = NULL;
 	struct ivi_compositor *ivi = to_ivi_compositor(compositor);
 	struct ivi_output *output;
+	struct ivi_backend *ivi_backend =
+		container_of(listener, struct ivi_backend, heads_changed);
 
-	while ((head = weston_compositor_iterate_heads(ivi->compositor, head))) {
+	while ((head = ivi_backend_iterate_heads(ivi, ivi_backend, head))) {
 		bool connected = weston_head_is_connected(head);
 		bool enabled = weston_head_is_enabled(head);
 		bool changed = weston_head_is_device_changed(head);
 		bool non_desktop = weston_head_is_non_desktop(head);
 
 		if (connected && !enabled && !non_desktop)
-			drm_head_prepare_enable(ivi, head);
+			drm_head_prepare_enable(ivi, ivi_backend, head);
 		else if (!connected && enabled)
 			drm_head_disable(ivi, head);
 		else if (enabled && changed)
@@ -765,7 +799,8 @@ drm_heads_changed(struct wl_listener *listener, void *arg)
 }
 
 static void
-simple_head_enable(struct ivi_compositor *ivi, struct weston_head *head)
+simple_head_enable(struct ivi_compositor *ivi, struct ivi_backend *ivi_backend,
+		   struct weston_head *head)
 {
 	struct ivi_output *output;
 	struct weston_config_section *section;
@@ -792,7 +827,7 @@ simple_head_enable(struct ivi_compositor *ivi, struct weston_head *head)
 	if (!output_name)
 		return;
 
-	output = ivi_ensure_output(ivi, output_name, section, head);
+	output = ivi_ensure_output(ivi, ivi_backend, output_name, section, head);
 	if (!output) {
 		weston_log("Failed to create output %s\n", output_name);
 		return;
@@ -827,15 +862,17 @@ simple_heads_changed(struct wl_listener *listener, void *arg)
 	bool enabled;
 	bool changed;
 	bool non_desktop;
+	struct ivi_backend *ivi_backend =
+		container_of(listener, struct ivi_backend, heads_changed);
 
-	while ((head = weston_compositor_iterate_heads(ivi->compositor, head))) {
+	while ((head = ivi_backend_iterate_heads(ivi, ivi_backend, head))) {
 		connected = weston_head_is_connected(head);
 		enabled = weston_head_is_enabled(head);
 		changed = weston_head_is_device_changed(head);
 		non_desktop = weston_head_is_non_desktop(head);
 
 		if (connected && !enabled && !non_desktop) {
-			simple_head_enable(ivi, head);
+			simple_head_enable(ivi, ivi_backend, head);
 		} else if (!connected && enabled) {
 			simple_head_disable(head);
 		} else if (enabled && changed) {
@@ -862,6 +899,7 @@ load_drm_backend(struct ivi_compositor *ivi, int *argc, char *argv[],
 	bool force_pixman = false;
 	bool use_shadow;
 	bool without_input = false;
+	struct ivi_backend *ivi_backend = NULL;
 
 	const struct weston_option options[] = {
 		{ WESTON_OPTION_STRING, "seat", 0, &config.seat_id },
@@ -891,15 +929,19 @@ load_drm_backend(struct ivi_compositor *ivi, int *argc, char *argv[],
 	if (without_input)
 		ivi->compositor->require_input = !without_input;
 
-	ivi->heads_changed.notify = drm_heads_changed;
-	weston_compositor_add_heads_changed_listener(ivi->compositor,
-						     &ivi->heads_changed);
-
-	if (!weston_compositor_load_backend(ivi->compositor, WESTON_BACKEND_DRM,
-					    &config.base)) {
+	ivi_backend = zalloc(sizeof(struct ivi_backend));
+	ivi_backend->backend =
+		weston_compositor_load_backend(ivi->compositor, WESTON_BACKEND_DRM,
+					       &config.base);
+	if (!ivi_backend->backend) {
 		weston_log("Failed to load DRM backend\n");
 		return -1;
 	}
+
+	ivi_backend->heads_changed.notify = drm_heads_changed;
+	weston_compositor_add_heads_changed_listener(ivi->compositor,
+						     &ivi_backend->heads_changed);
+	wl_list_insert(&ivi->backends, &ivi_backend->link);
 
 	ivi->drm_api = weston_drm_output_get_api(ivi->compositor);
 	if (!ivi->drm_api) {
@@ -943,6 +985,7 @@ windowed_parse_common_options(struct ivi_compositor *ivi, int *argc, char *argv[
 
 static int
 windowed_create_outputs(struct ivi_compositor *ivi, int output_count,
+			struct weston_backend *backend,
 			const char *match_prefix, const char *name_prefix)
 {
 	struct weston_config_section *section = NULL;
@@ -968,7 +1011,7 @@ windowed_create_outputs(struct ivi_compositor *ivi, int output_count,
 			continue;
 		}
 
-		if (ivi->window_api->create_head(ivi->backend, output_name) < 0) {
+		if (ivi->window_api->create_head(backend, output_name) < 0) {
 			free(output_name);
 			return -1;
 		}
@@ -981,7 +1024,7 @@ windowed_create_outputs(struct ivi_compositor *ivi, int output_count,
 		if (asprintf(&default_output, "%s%d", name_prefix, i) < 0)
 			return -1;
 
-		if (ivi->window_api->create_head(ivi->backend, default_output) < 0) {
+		if (ivi->window_api->create_head(backend, default_output) < 0) {
 			free(default_output);
 			return -1;
 		}
@@ -1027,6 +1070,7 @@ load_wayland_backend(struct ivi_compositor *ivi, int *argc, char *argv[],
 	int sprawl = 0;
 	int output_count;
 	bool force_pixman = false;
+	struct ivi_backend *ivi_backend = NULL;
 
 	const struct weston_option options[] = {
 		{ WESTON_OPTION_STRING, "display", 0, &config.display_name },
@@ -1045,23 +1089,25 @@ load_wayland_backend(struct ivi_compositor *ivi, int *argc, char *argv[],
 	weston_config_section_get_int(section, "cursor-size",
 				      &config.cursor_size, 32);
 
-	ivi->simple_output_configure = wayland_backend_output_configure;
-	ivi->heads_changed.notify = simple_heads_changed;
-	weston_compositor_add_heads_changed_listener(ivi->compositor,
-						     &ivi->heads_changed);
-
-	ivi->backend = weston_compositor_load_backend(ivi->compositor,
+	ivi_backend = zalloc(sizeof(struct ivi_backend));
+	ivi_backend->backend = weston_compositor_load_backend(ivi->compositor,
 						      WESTON_BACKEND_WAYLAND,
 						      &config.base);
-	if (!ivi->backend) {
-		weston_log("Failed to create Wayland backend!\n");
-	}
-
 	free(config.cursor_theme);
 	free(config.display_name);
 
-	if (!ivi->backend)
+	if (!ivi_backend->backend) {
+		weston_log("Failed to create Wayland backend!\n");
 		return -1;
+	}
+
+	ivi_backend->simple_output_configure = wayland_backend_output_configure;
+	ivi_backend->heads_changed.notify = simple_heads_changed;
+	weston_compositor_add_heads_changed_listener(ivi->compositor,
+						     &ivi_backend->heads_changed);
+
+
+	wl_list_insert(&ivi->backends, &ivi_backend->link);
 
 	ivi->window_api = weston_windowed_output_get_api(ivi->compositor);
 
@@ -1075,7 +1121,7 @@ load_wayland_backend(struct ivi_compositor *ivi, int *argc, char *argv[],
 	if (ivi->window_api == NULL)
 		return 0;
 
-	return windowed_create_outputs(ivi, output_count, "WL", "wayland");
+	return windowed_create_outputs(ivi, output_count, ivi_backend->backend, "WL", "wayland");
 }
 
 #ifdef HAVE_BACKEND_X11
@@ -1113,6 +1159,7 @@ load_x11_backend(struct ivi_compositor *ivi, int *argc, char *argv[],
 	int no_input = 0;
 	int output_count;
 	bool force_pixman = false;
+	struct ivi_backend *ivi_backend = NULL;
 
 	const struct weston_option options[] = {
 	       { WESTON_OPTION_BOOLEAN, "no-input", 0, &no_input },
@@ -1128,19 +1175,21 @@ load_x11_backend(struct ivi_compositor *ivi, int *argc, char *argv[],
 		config.renderer = WESTON_RENDERER_AUTO;
 	config.no_input = no_input;
 
-	ivi->simple_output_configure = x11_backend_output_configure;
 
-	ivi->heads_changed.notify = simple_heads_changed;
-	weston_compositor_add_heads_changed_listener(ivi->compositor,
-						     &ivi->heads_changed);
-
-	ivi->backend = weston_compositor_load_backend(ivi->compositor,
+	ivi_backend = zalloc(sizeof(struct ivi_backend));
+	ivi_backend->backend = weston_compositor_load_backend(ivi->compositor,
 						      WESTON_BACKEND_X11,
 						      &config.base);
-	if (!ivi->backend) {
+	if (!ivi_backend->backend) {
 		weston_log("Failed to create X11 backend!\n");
 		return -1;
 	}
+
+	ivi_backend->simple_output_configure = x11_backend_output_configure;
+	ivi_backend->heads_changed.notify = simple_heads_changed;
+	weston_compositor_add_heads_changed_listener(ivi->compositor,
+						     &ivi_backend->heads_changed);
+
 
 	ivi->window_api = weston_windowed_output_get_api(ivi->compositor);
 	if (!ivi->window_api) {
@@ -1148,7 +1197,9 @@ load_x11_backend(struct ivi_compositor *ivi, int *argc, char *argv[],
 		return -1;
 	}
 
-	return windowed_create_outputs(ivi, output_count, "X", "screen");
+	wl_list_insert(&ivi->backends, &ivi_backend->link);
+
+	return windowed_create_outputs(ivi, output_count, ivi_backend->backend, "X", "screen");
 }
 #else
 static int
@@ -1249,6 +1300,7 @@ load_rdp_backend(struct ivi_compositor *ivi, int *argc, char **argv,
 	struct weston_rdp_backend_config config = {};
 	struct weston_config_section *section;
 	bool no_remotefx_codec = false;
+	struct ivi_backend *ivi_backend = NULL;
 
 	struct ivi_output_config *parsed_options = ivi_init_parsed_options(ivi->compositor);
 	if (!parsed_options)
@@ -1290,22 +1342,27 @@ load_rdp_backend(struct ivi_compositor *ivi, int *argc, char **argv,
 	parse_options(rdp_options, ARRAY_LENGTH(rdp_options), argc, argv);
 	weston_log("No clients resize: %d\n", config.no_clients_resize);
 
-	ivi->simple_output_configure = rdp_backend_output_configure;
 
-	ivi->heads_changed.notify = simple_heads_changed;
-	weston_compositor_add_heads_changed_listener(ivi->compositor,
-						     &ivi->heads_changed);
-
-	if (!weston_compositor_load_backend(ivi->compositor,
-					    WESTON_BACKEND_RDP, &config.base)) {
+	ivi_backend = zalloc(sizeof(struct ivi_backend));
+	ivi_backend->backend = weston_compositor_load_backend(ivi->compositor,
+					    WESTON_BACKEND_RDP, &config.base);
+	if (!ivi_backend->backend) {
 		weston_log("Failed to create RDP backend\n");
 		return -1;
 	}
+
+	ivi_backend->simple_output_configure = rdp_backend_output_configure;
+	ivi_backend->heads_changed.notify = simple_heads_changed;
+	weston_compositor_add_heads_changed_listener(ivi->compositor,
+						     &ivi_backend->heads_changed);
+
 
 	free(config.bind_address);
 	free(config.rdp_key);
 	free(config.server_cert);
 	free(config.server_key);
+
+	wl_list_insert(&ivi->backends, &ivi_backend->link);
 
 	return 0;
 }
@@ -1387,6 +1444,7 @@ load_pipewire_backend(struct ivi_compositor *ivi, int *argc, char **argv,
 	struct weston_config_section *section;
 	struct ivi_output_config *parsed_options =
 		ivi_init_parsed_options(ivi->compositor);
+	struct ivi_backend *ivi_backend = NULL;
 
 	if (!parsed_options)
 		return -1;
@@ -1410,16 +1468,21 @@ load_pipewire_backend(struct ivi_compositor *ivi, int *argc, char **argv,
 	weston_config_section_get_int(section, "num-outputs",
 				      &config.num_outputs, 1);
 
-	ivi->simple_output_configure = pipewire_backend_output_configure;
-	ivi->heads_changed.notify = simple_heads_changed;
-	weston_compositor_add_heads_changed_listener(ivi->compositor,
-						     &ivi->heads_changed);
 
-	if (!weston_compositor_load_backend(ivi->compositor,
-					    WESTON_BACKEND_PIPEWIRE, &config.base)) {
+	ivi_backend = zalloc(sizeof(struct ivi_backend));
+	ivi_backend->backend = weston_compositor_load_backend(ivi->compositor,
+					    WESTON_BACKEND_PIPEWIRE, &config.base);
+	if (!ivi_backend->backend) {
 		weston_log("Failed to create PipeWire backend\n");
 		return -1;
 	}
+
+	ivi_backend->simple_output_configure = pipewire_backend_output_configure;
+	ivi_backend->heads_changed.notify = simple_heads_changed;
+	weston_compositor_add_heads_changed_listener(ivi->compositor,
+						     &ivi_backend->heads_changed);
+
+	wl_list_insert(&ivi->backends, &ivi_backend->link);
 
 	return 0;
 }
@@ -1466,6 +1529,33 @@ load_backend(struct ivi_compositor *ivi, int *argc, char **argv,
 
 	return 0;
 }
+
+static int
+load_backends(struct ivi_compositor *ivi, const char *backends,
+	      int *argc, char **argv, const char *renderer)
+{
+	const char *p, *end;
+	char buffer[256];
+
+	if (backends == NULL)
+		return 0;
+
+	p = backends;
+	while (*p) {
+		end = strchrnul(p, ',');
+		snprintf(buffer, sizeof buffer, "%.*s", (int) (end - p), p);
+
+		if (load_backend(ivi, argc, argv, buffer, renderer) < 0)
+			return -1;
+
+		p = end;
+		while (*p == ',')
+			p++;
+	}
+
+	return 0;
+}
+
 
 static int
 load_modules(struct ivi_compositor *ivi, const char *modules,
@@ -1939,7 +2029,7 @@ int wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_da
 	struct wl_event_source *signals[3] = { 0 };
 	struct weston_config_section *section;
 	/* Command line options */
-	char *backend = NULL;
+	char *backends = NULL;
 	char *socket_name = NULL;
 	char *log = NULL;
 	char *modules = NULL;
@@ -1962,7 +2052,8 @@ int wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_da
 
 	const struct weston_option core_options[] = {
 		{ WESTON_OPTION_STRING, "renderer", 'r', &renderer },
-		{ WESTON_OPTION_STRING, "backend", 'B', &backend },
+		{ WESTON_OPTION_STRING, "backend", 'B', &backends },
+		{ WESTON_OPTION_STRING, "backends", 0, &backends },
 		{ WESTON_OPTION_STRING, "socket", 'S', &socket_name },
 		{ WESTON_OPTION_STRING, "log", 0, &log },
 		{ WESTON_OPTION_BOOLEAN, "help", 'h', &help },
@@ -1985,6 +2076,7 @@ int wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_da
 	wl_list_init(&ivi.split_pending_apps);
 	wl_list_init(&ivi.remote_pending_apps);
 	wl_list_init(&ivi.desktop_clients);
+	wl_list_init(&ivi.backends);
 	wl_list_init(&ivi.child_process_list);
 	wl_list_init(&ivi.pending_apps);
 
@@ -2025,11 +2117,11 @@ int wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_da
 	if (load_config(&ivi.config, no_config, config_file) < 0)
 		goto error_signals;
 	section = weston_config_get_section(ivi.config, "core", NULL, NULL);
-	if (!backend) {
-		weston_config_section_get_string(section, "backend", &backend,
+	if (!backends) {
+		weston_config_section_get_string(section, "backend", &backends,
 						 NULL);
-		if (!backend)
-			backend = choose_default_backend();
+		if (!backends)
+			backends = choose_default_backend();
 	}
 
 	display = wl_display_create();
@@ -2075,8 +2167,9 @@ int wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_da
 	if (compositor_init_config(&ivi) < 0)
 		goto error_compositor;
 
-	if (load_backend(&ivi, &argc, argv, backend, renderer) < 0) {
-		weston_log("fatal: failed to create compositor backend.\n");
+	ivi.compositor->multi_backend = backends && strchr(backends, ',');
+	if (load_backends(&ivi, backends, &argc, argv, renderer) < 0) {
+		weston_log("fatal: failed to create compositor backend\n");
 		goto error_compositor;
 	}
 
@@ -2163,11 +2256,13 @@ int wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_da
 
 	ret = ivi.compositor->exit_code;
 
+	ivi_compositor_destroy_backends(&ivi);
+
 	wl_display_destroy_clients(display);
 
 error_compositor:
-	free(backend);
-	backend = NULL;
+	free(backends);
+	backends = NULL;
 	free(modules);
 	modules = NULL;
 
