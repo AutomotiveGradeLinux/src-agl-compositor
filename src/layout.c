@@ -381,7 +381,7 @@ ivi_layout_activate_complete(struct ivi_output *output,
 	if (output->active) {
 		/* keep the background surface mapped at all times */
 		if (output->active->role != IVI_SURFACE_ROLE_BACKGROUND &&
-		    !output->active->sticky) {
+		    !output->active->sticky && output->active != surf) {
 			weston_surface_unmap(output->active->view->surface);
 			weston_view_move_to_layer(output->active->view, NULL);
 		}
@@ -408,12 +408,19 @@ ivi_layout_activate_complete(struct ivi_output *output,
 	if (!weston_surface_is_mapped(view->surface)) {
 		weston_surface_map(view->surface);
 		weston_view_move_to_layer(view, &ivi->normal.view_list);
+
+		weston_log("Activation completed for app_id %s, role %s, output %s\n",
+				app_id,
+				ivi_layout_get_surface_role_name(surf), output->name);
+
+		shell_send_app_state(ivi, app_id, AGL_SHELL_APP_STATE_ACTIVATED);
+
+		if (ivi_seat)
+			ivi_shell_activate_surface(surf, ivi_seat, WESTON_ACTIVATE_FLAG_NONE);
 	} else {
 		weston_view_update_transform(view);
 	}
 
-	if (ivi_seat)
-		ivi_shell_activate_surface(surf, ivi_seat, WESTON_ACTIVATE_FLAG_NONE);
 
 	/*
 	 * the 'remote' role now makes use of this part so make sure we don't
@@ -425,12 +432,6 @@ ivi_layout_activate_complete(struct ivi_output *output,
 			surf->desktop.last_output = surf->desktop.pending_output;
 		surf->desktop.pending_output = NULL;
 	}
-
-	weston_log("Activation completed for app_id %s, role %s, output %s\n",
-			app_id,
-			ivi_layout_get_surface_role_name(surf), output->name);
-
-	shell_send_app_state(ivi, app_id, AGL_SHELL_APP_STATE_ACTIVATED);
 }
 
 static bool
