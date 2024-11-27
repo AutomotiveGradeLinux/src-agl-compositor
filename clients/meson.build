@@ -37,3 +37,5 @@ foreach t: clients
 
   message('Building client ' + t_name)
 endforeach
+
+install_data('agl-stream-pipewire-output', install_dir: get_option('bindir'))
