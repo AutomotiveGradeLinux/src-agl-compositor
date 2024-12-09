@@ -940,6 +940,7 @@ load_drm_backend(struct ivi_compositor *ivi, int *argc, char *argv[],
 					       &config.base);
 	if (!ivi_backend->backend) {
 		weston_log("Failed to load DRM backend\n");
+		free(ivi_backend);
 		return -1;
 	}
 
@@ -1103,6 +1104,7 @@ load_wayland_backend(struct ivi_compositor *ivi, int *argc, char *argv[],
 
 	if (!ivi_backend->backend) {
 		weston_log("Failed to create Wayland backend!\n");
+		free(ivi_backend);
 		return -1;
 	}
 
@@ -1187,6 +1189,7 @@ load_x11_backend(struct ivi_compositor *ivi, int *argc, char *argv[],
 						      &config.base);
 	if (!ivi_backend->backend) {
 		weston_log("Failed to create X11 backend!\n");
+		free(ivi_backend);
 		return -1;
 	}
 
@@ -1353,6 +1356,7 @@ load_rdp_backend(struct ivi_compositor *ivi, int *argc, char **argv,
 					    WESTON_BACKEND_RDP, &config.base);
 	if (!ivi_backend->backend) {
 		weston_log("Failed to create RDP backend\n");
+		free(ivi_backend);
 		return -1;
 	}
 
@@ -1479,6 +1483,7 @@ load_pipewire_backend(struct ivi_compositor *ivi, int *argc, char **argv,
 					    WESTON_BACKEND_PIPEWIRE, &config.base);
 	if (!ivi_backend->backend) {
 		weston_log("Failed to create PipeWire backend\n");
+		free(ivi_backend);
 		return -1;
 	}
 
