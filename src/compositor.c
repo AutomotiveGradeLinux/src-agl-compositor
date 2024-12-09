@@ -1395,8 +1395,11 @@ pipewire_backend_config_init(struct weston_pipewire_backend_config *config)
 static int
 pipewire_backend_output_configure(struct weston_output *output)
 {
-	int width = 640;
-	int height = 480;
+	int default_width = 640;
+	int default_height = 480;
+	int width = 0;
+	int height = 0;
+	char *mode;
 	struct ivi_compositor *ivi = to_ivi_compositor(output->compositor);
 	struct ivi_output_config *parsed_options = ivi->parsed_options;
 
@@ -1417,8 +1420,13 @@ pipewire_backend_output_configure(struct weston_output *output)
 	section = weston_config_get_section(ivi->config,
 					    "output", "name", output->name);
 
-	weston_config_section_get_int(section, "width", &width, width);
-	weston_config_section_get_int(section, "height", &height, height);
+	weston_config_section_get_string(section, "mode", &mode, NULL);
+	if (!mode || sscanf(mode, "%dx%d", &width, &height) != 2) {
+		weston_log("Invalid mode for output %s. Using defaults.\n",
+			   output->name);
+		width = default_width;
+		height = default_height;
+	}
 
 	if (parsed_options->width)
 		width = parsed_options->width;
