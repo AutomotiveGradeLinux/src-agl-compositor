@@ -500,10 +500,7 @@ ivi_layout_add_to_hidden_layer(struct ivi_surface *surf,
 	 * start receiving frame events, and will be able to act on our
 	 * configure event.
 	 */
-	if (!weston_view_is_mapped(ev)) {
-		ev->is_mapped = true;
-		ev->surface->is_mapped = true;
-
+	if (!weston_surface_is_mapped(ev->surface)) {
 		weston_desktop_surface_set_maximized(dsurf, true);
 		weston_desktop_surface_set_size(dsurf,
 						ivi_output->area.width,
@@ -574,7 +571,7 @@ ivi_layout_remote_committed(struct ivi_surface *surf)
 	 * ivi_layout_activate_complete() terminates so we use the
 	 * current active surface to avoid hitting this again and again
 	 * */
-	if (surf->mapped && output->active == surf)
+	if (weston_surface_is_mapped(surf->view->surface) && output->active == surf)
 		return;
 
 	if (!surf->ivi->activate_by_default &&
@@ -847,7 +844,7 @@ ivi_layout_split_committed(struct ivi_surface *surface)
 	    !surface->mapped)
 		return;
 
-	if (surface->view->is_mapped)
+	if (weston_view_is_mapped(surface->view))
 		return;
 
 	geom = weston_desktop_surface_get_geometry(dsurface);
