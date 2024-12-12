@@ -194,7 +194,6 @@ desktop_surface_added(struct weston_desktop_surface *dsurface, void *userdata)
 	surface->ivi = ivi;
 	surface->dsurface = dsurface;
 	surface->role = IVI_SURFACE_ROLE_NONE;
-	surface->mapped = false;
 	surface->checked_pending = false;
 	wl_list_init(&surface->link);
 
@@ -306,9 +305,7 @@ desktop_surface_removed(struct weston_desktop_surface *dsurface, void *userdata)
 
 	/* reset the active surface as well */
 	if (output && output->active && output->active == surface) {
-		output->active->view->is_mapped = false;
-		output->active->view->surface->is_mapped = false;
-
+		weston_surface_unmap(output->active->view->surface);
 		weston_view_move_to_layer(output->active->view, NULL);
 		output->active = NULL;
 	}
