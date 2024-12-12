@@ -322,7 +322,7 @@ struct ivi_surface {
 		int32_t x, y;
 		int32_t width, height;
 	} pending;
-	bool mapped;
+
 	bool checked_pending;
 	enum {
 		NORMAL,

@@ -99,7 +99,7 @@ ivi_set_desktop_surface_remote(struct ivi_surface *surface)
         * just being added */
        if (output->fullscreen_view.fs) {
                view = output->fullscreen_view.fs->view;
-               if (view->is_mapped || view->surface->is_mapped)
+               if (weston_view_is_mapped(view))
                        remove_black_curtain(output);
        }
 
@@ -973,8 +973,7 @@ output_has_black_curtain(struct ivi_output *output)
 {
 	return (output->fullscreen_view.fs &&
 		output->fullscreen_view.fs->view &&
-		output->fullscreen_view.fs->view->is_mapped &&
-	        output->fullscreen_view.fs->view->surface->is_mapped);
+		weston_surface_is_mapped(output->fullscreen_view.fs->view->surface));
 }
 
 void
@@ -993,8 +992,7 @@ remove_black_curtain(struct ivi_output *output)
 
 	view = output->fullscreen_view.fs->view;
 	wsurface = view->surface;
-	assert(view->is_mapped == true ||
-	       view->surface->is_mapped == true);
+	assert(weston_surface_is_mapped(view->surface));
 
 	weston_surface_unmap(wsurface);
 
@@ -1018,7 +1016,7 @@ insert_black_curtain(struct ivi_output *output)
 
 	view = output->fullscreen_view.fs->view;
 	wsurface = view->surface;
-	if (view->is_mapped || view->surface->is_mapped)
+	if (weston_surface_is_mapped(wsurface))
 		return;
 
 	weston_surface_map(wsurface);

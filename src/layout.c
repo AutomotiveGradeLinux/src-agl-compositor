@@ -624,7 +624,7 @@ ivi_layout_desktop_committed(struct ivi_surface *surf)
 			return;
 
 		/* we can only activate it again by using the protocol */
-		if (surf->mapped)
+		if (weston_surface_is_mapped(surf->view->surface))
 			return;
 
 		/* check first if there aren't any outputs being set */
@@ -632,7 +632,7 @@ ivi_layout_desktop_committed(struct ivi_surface *surf)
 
 		if (r_output) {
 			struct weston_view *view = r_output->fullscreen_view.fs->view;
-			if (view->is_mapped || view->surface->is_mapped)
+			if (weston_view_is_mapped(view))
 				remove_black_curtain(r_output);
 		}
 
@@ -731,8 +731,7 @@ ivi_layout_fullscreen_committed(struct ivi_surface *surface)
 		geom.height == bg_output->output->height;
 
 	if (policy && policy->api.surface_activate_by_default &&
-	    !policy->api.surface_activate_by_default(surface, surface->ivi) &&
-	    !surface->mapped)
+	    !policy->api.surface_activate_by_default(surface, surface->ivi))
 		return;
 
 	assert(surface->role == IVI_SURFACE_ROLE_FULLSCREEN);
@@ -784,6 +783,7 @@ ivi_layout_fullscreen_committed(struct ivi_surface *surface)
 
 		if (ivi_seat)
 			ivi_shell_activate_surface(surface, ivi_seat, WESTON_ACTIVATE_FLAG_NONE);
+
 		weston_log("Activation completed for app_id %s, role %s, "
 			   "output %s\n", app_id,
 			   ivi_layout_get_surface_role_name(surface),
@@ -840,8 +840,7 @@ ivi_layout_split_committed(struct ivi_surface *surface)
 	int width, height;
 
 	if (policy && policy->api.surface_activate_by_default &&
-	    !policy->api.surface_activate_by_default(surface, surface->ivi) &&
-	    !surface->mapped)
+	    !policy->api.surface_activate_by_default(surface, surface->ivi))
 		return;
 
 	if (weston_view_is_mapped(surface->view))
@@ -954,8 +953,7 @@ ivi_layout_popup_committed(struct ivi_surface *surface)
 	struct weston_view *view = surface->view;
 
 	if (policy && policy->api.surface_activate_by_default &&
-	    !policy->api.surface_activate_by_default(surface, surface->ivi) &&
-	    !surface->mapped)
+	    !policy->api.surface_activate_by_default(surface, surface->ivi))
 		return;
 
 	if (weston_view_is_mapped(view) || surface->state == HIDDEN)
@@ -1007,11 +1005,6 @@ ivi_layout_popup_re_add(struct ivi_surface *surface)
 		weston_surface_unmap(wsurface);
 	}
 
-	/* reset the activate by default in order to (still) allow the surface
-	 * to be activaved using the request */
-	if (!surface->mapped)
-		surface->mapped = true;
-
 	surface->state = NORMAL;
 	ivi_layout_popup_committed(surface);
 }
@@ -1031,11 +1024,6 @@ ivi_layout_fullscreen_re_add(struct ivi_surface *surface)
 		weston_surface_unmap(wsurface);
 	}
 
-	/* reset the activate by default in order to (still) allow the surface
-	 * to be activaved using the request */
-	if (!surface->mapped)
-		surface->mapped = true;
-
 	surface->state = NORMAL;
 	ivi_layout_fullscreen_committed(surface);
 }
@@ -1050,11 +1038,6 @@ ivi_layout_surface_is_split_or_fullscreen(struct ivi_surface *surf)
 	    surf->role != IVI_SURFACE_ROLE_SPLIT_V &&
 	    surf->role != IVI_SURFACE_ROLE_FULLSCREEN)
 		return false;
-
-	/* reset the activate by default in order to (still) allow the surface
-	 * to be activaved using the request */
-	if (!surf->mapped)
-		surf->mapped = true;
 
 	wl_list_for_each(is, &ivi->surfaces, link)
 		if (is == surf)
@@ -1097,8 +1080,6 @@ ivi_layout_reset_split_surfaces(struct ivi_compositor *ivi)
 			weston_surface_map(ev->surface);
 			weston_view_move_to_layer(ev, &ivi->normal.view_list);
 		}
-
-		output->previous_active->mapped = true;
 
 		weston_view_set_output(ev, woutput);
 
