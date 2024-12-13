@@ -33,6 +33,7 @@
 #include <libweston/config-parser.h>
 #include <libweston/libweston.h>
 #include <libweston/desktop.h>
+#include <libweston/shell-utils.h>
 
 #define AGL_COMP_DEBUG
 
@@ -136,6 +137,12 @@ ivi_layout_get_surface_role_name(struct ivi_surface *surf)
 	return ivi_roles_as_string[surf->role];
 }
 
+static int
+black_surface_get_label(struct weston_surface *surface, char *buf, size_t len)
+{
+        return snprintf(buf, len, "remote output background surface");
+}
+
 static void
 ivi_background_init(struct ivi_compositor *ivi, struct ivi_output *output)
 {
@@ -145,7 +152,48 @@ ivi_background_init(struct ivi_compositor *ivi, struct ivi_output *output)
 	struct weston_surface *wsurface;
 
 	if (!bg) {
-		weston_log("WARNING: Output does not have a background\n");
+		struct weston_curtain *curtain = NULL;
+		struct ivi_surface *ivi_surf = NULL;
+
+		weston_log("WARNING: Output %s (type: %d) does not have a background.\n", output->output->name, output->type);
+		if (output->type != OUTPUT_REMOTE)
+			return;
+
+		weston_log("Installing a red background on output %s.\n",
+				output->output->name);
+
+		struct weston_curtain_params curtain_params = {
+			.r = 1.0, .g = 0.0, .b = 0.0, .a = 1.0,
+			.pos = woutput->pos,
+			.width = woutput->width, .height = woutput->height,
+			.get_label = black_surface_get_label,
+			.surface_private = NULL,
+			.surface_committed = NULL,
+			.capture_input = true,
+		};
+
+		curtain = weston_shell_utils_curtain_create(ivi->compositor, &curtain_params);
+
+		weston_surface_set_role(curtain->view->surface,
+					"remote-output-background-surface", NULL, 0);
+
+		weston_view_move_to_layer(curtain->view, &ivi->background.view_list);
+		weston_view_set_output(curtain->view, woutput);
+
+		ivi_surf = zalloc(sizeof(*ivi_surf));
+		ivi_surf->view = curtain->view;
+		ivi_surf->ivi = ivi;
+		output->background = ivi_surf;
+
+		weston_log("(background) position view %p, x %f, y %f, on output %s\n", curtain->view,
+				woutput->pos.c.x, woutput->pos.c.y, output->name);
+
+		/* this background will always be available displayed, while
+		 * the back curtain is installed/removed as we please */
+		remove_black_curtain(output);
+
+		/* force the surface to apepar on the remote side */
+		weston_compositor_damage_all(ivi->compositor);
 		return;
 	}
 
@@ -395,7 +443,7 @@ ivi_layout_activate_complete(struct ivi_output *output,
 		 * we're trying to complete activation with means we're
 		 * operating on the same app_id so do update previous_active as
 		 * it will overwrite it with the same value */
-		if (app_id && !strcmp(c_app_id, app_id)) {
+		if (c_app_id && app_id && !strcmp(c_app_id, app_id)) {
 			update_previous = false;
 		}
 	}

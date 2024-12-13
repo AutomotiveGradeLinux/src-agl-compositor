@@ -285,8 +285,9 @@ desktop_surface_removed(struct weston_desktop_surface *dsurface, void *userdata)
 	 * the DESKTOP role can happen here as well, because we can fall-back 
 	 * to that when we try to determine the role type. Application that
 	 * do not set the app_id will be land here, when destroyed */
-	if ((output == NULL && (surface->role == IVI_SURFACE_ROLE_NONE ||
-				surface->role == IVI_SURFACE_ROLE_DESKTOP)) ||
+	if ((output == NULL &&
+	     (surface->role == IVI_SURFACE_ROLE_NONE ||
+	      surface->role == IVI_SURFACE_ROLE_DESKTOP)) ||
 	     output->output == NULL)
 		goto skip_output_asignment;
 
@@ -333,8 +334,8 @@ desktop_surface_removed(struct weston_desktop_surface *dsurface, void *userdata)
 
 	if (surface->role == IVI_SURFACE_ROLE_TILE) {
 		ivi_layout_reset_split_surfaces(surface->ivi);
-		// activate previous when resizing back to give input set
-		// output active for allowing to resizing again if needed
+		/* activate previous when resizing back to give input set
+		 * output active for allowing to resizing again if needed */
 		if (output->previous_active)
 			ivi_layout_activate_by_surf(output, output->previous_active);
 	}

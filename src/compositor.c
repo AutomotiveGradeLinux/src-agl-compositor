@@ -307,6 +307,14 @@ ivi_ensure_output(struct ivi_compositor *ivi, struct ivi_backend *ivi_backend,
 		}
 	}
 
+	switch (weston_get_backend_type(ivi_backend->backend)) {
+	case WESTON_BACKEND_VNC:
+	case WESTON_BACKEND_RDP:
+	case WESTON_BACKEND_PIPEWIRE:
+		output->type = OUTPUT_REMOTE;
+		break;
+	default:
+	}
 
 	wl_list_insert(&ivi->outputs, &output->link);
 	ivi_output_configure_app_id(output);
