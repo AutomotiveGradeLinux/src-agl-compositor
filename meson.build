@@ -11,7 +11,7 @@ project('agl-compositor',
 )
 
 config_h = configuration_data()
-libweston_version = 'libweston-13'
+libweston_version = 'libweston-14'
 pkgconfig = import('pkgconfig')
 fs = import('fs')
 
@@ -65,7 +65,7 @@ endforeach
 
 agl_shell_xml = files('protocol/agl-shell.xml')
 xdg_shell_xml = join_paths(dir_wp_base, 'stable', 'xdg-shell', 'xdg-shell.xml')
-dep_libweston_protocols = dependency('libweston-13-protocols', version: '>= 13')
+dep_libweston_protocols = dependency('libweston-14-protocols', version: '>= 14')
 dir_protocol_libweston = dep_libweston_protocols.get_pkgconfig_variable('pkgdatadir')
 
 protocols = [
