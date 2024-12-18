@@ -27,7 +27,10 @@
 #define IVI_COMPOSITOR_H
 
 #include <stdbool.h>
+
 #include "config.h"
+
+#include "shared/helpers.h"
 
 #include <weston.h>
 #include <libweston/backend-drm.h>
