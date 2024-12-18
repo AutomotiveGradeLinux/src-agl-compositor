@@ -1130,7 +1130,8 @@ load_wayland_backend(struct ivi_compositor *ivi, int *argc, char *argv[],
 
 	wl_list_insert(&ivi->backends, &ivi_backend->link);
 
-	ivi->window_api = weston_windowed_output_get_api(ivi->compositor);
+	ivi->window_api = weston_windowed_output_get_api(ivi->compositor,
+							 WESTON_WINDOWED_OUTPUT_WAYLAND);
 
 	/*
 	 * We will just assume if load_backend() finished cleanly and
@@ -1213,7 +1214,8 @@ load_x11_backend(struct ivi_compositor *ivi, int *argc, char *argv[],
 						     &ivi_backend->heads_changed);
 
 
-	ivi->window_api = weston_windowed_output_get_api(ivi->compositor);
+	ivi->window_api = weston_windowed_output_get_api(ivi->compositor,
+							 WESTON_WINDOWED_OUTPUT_X11);
 	if (!ivi->window_api) {
 		weston_log("Cannot use weston_windowed_output_api.\n");
 		return -1;
