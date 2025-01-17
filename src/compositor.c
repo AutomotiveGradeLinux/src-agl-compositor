@@ -45,6 +45,9 @@
 #ifdef HAVE_BACKEND_X11
 #include <libweston/backend-x11.h>
 #endif
+#ifdef HAVE_BACKEND_RDP
+#include <libweston/backend-rdp.h>
+#endif
 #include <libweston/libweston.h>
 #include <libweston/windowed-output-api.h>
 #include <libweston/config-parser.h>
