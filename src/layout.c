@@ -501,6 +501,7 @@ ivi_layout_add_to_hidden_layer(struct ivi_surface *surf,
 	 * configure event.
 	 */
 	if (!weston_surface_is_mapped(ev->surface)) {
+		weston_surface_map(ev->surface);
 		weston_desktop_surface_set_maximized(dsurf, true);
 		weston_desktop_surface_set_size(dsurf,
 						ivi_output->area.width,
