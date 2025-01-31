@@ -1327,10 +1327,10 @@ shell_set_app_float(struct wl_client *client, struct wl_resource *shell_res,
 		struct ivi_bounding_box bb = {};
 		const char *prev_activate_app_id = NULL;
 
-		/* XXX: if this is useful we could bring it as active then make
-		 * it float, but avoid doing it for the moment */
-		if (surf != ivi_output->active)
-			return;
+		if (surf != ivi_output->active) {
+			weston_log("Detected that app_id %s is not active but "
+				   "continue to allowing setting it up as floating\n");
+		}
 
 		if (ivi_output->previous_active)
 			prev_activate_app_id =
