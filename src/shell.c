@@ -1329,7 +1329,7 @@ shell_set_app_float(struct wl_client *client, struct wl_resource *shell_res,
 
 		if (surf != ivi_output->active) {
 			weston_log("Detected that app_id %s is not active but "
-				   "continue to allowing setting it up as floating\n");
+				   "continue to allowing setting it up as floating\n", app_id);
 		}
 
 		if (ivi_output->previous_active)
