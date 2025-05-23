@@ -1520,7 +1520,7 @@ shell_set_app_output(struct wl_client *client, struct wl_resource *res,
 		return;
 
 	/* handle the case we're not mapped at all */
-	if (!surf) {
+	if (!surf || !weston_surface_is_mapped(surf->view->surface)) {
 		ivi_set_pending_desktop_surface_remote(ioutput, app_id);
 		shell_send_app_on_output(ivi, app_id, woutput->name);
 		return;
