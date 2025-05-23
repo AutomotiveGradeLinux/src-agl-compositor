@@ -1546,13 +1546,15 @@ shell_set_app_output(struct wl_client *client, struct wl_resource *res,
 	/* update the remote output */
 	surf->remote.output = ioutput;
 
-	if (surf->role != IVI_SURFACE_ROLE_REMOTE) {
-		wl_list_remove(&surf->link);
-		wl_list_init(&surf->link);
+	wl_list_remove(&surf->link);
+	wl_list_init(&surf->link);
 
-		surf->role = IVI_SURFACE_ROLE_NONE;
-		ivi_set_desktop_surface_remote(surf);
-	}
+	surf->role = IVI_SURFACE_ROLE_NONE;
+	ivi_set_desktop_surface_remote(surf);
+
+	ivi_layout_add_to_hidden_layer(surf, ioutput);
+	weston_log("Setting app_id %s type remote on output %s\n",
+		   app_id, surf->remote.output->name);
 
 	shell_send_app_on_output(ivi, app_id, woutput->name);
 }

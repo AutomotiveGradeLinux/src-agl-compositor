@@ -418,6 +418,10 @@ ivi_layout_activate_complete(struct ivi_output *output,
 		if (ivi_seat)
 			ivi_shell_activate_surface(surf, ivi_seat, WESTON_ACTIVATE_FLAG_NONE);
 	} else {
+		/* check if it is in the hidden layer */
+		if (surf->hidden_layer_output == output)
+			weston_view_move_to_layer(view, &ivi->normal.view_list);
+
 		weston_view_update_transform(view);
 	}
 
@@ -486,7 +490,7 @@ ivi_layout_find_bg_output(struct ivi_compositor *ivi)
 }
 
 
-static void
+void
 ivi_layout_add_to_hidden_layer(struct ivi_surface *surf,
 			       struct ivi_output *ivi_output)
 {
@@ -583,9 +587,9 @@ ivi_layout_remote_committed(struct ivi_surface *surf)
 		if (!weston_desktop_surface_get_maximized(dsurf) ||
 		    geom.width != output->area.width ||
 		    geom.height != output->area.height) {
+			weston_log("Adding app_id %s to hidden layer\n", app_id);
 			ivi_layout_add_to_hidden_layer(surf, output);
 		}
-
 		return;
 	}
 

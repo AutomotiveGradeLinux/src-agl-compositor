@@ -573,4 +573,8 @@ ivi_process_destroy(struct wet_process *process, int status, bool call_cleanup);
 void
 create_black_curtain_view(struct ivi_output *output);
 
+void
+ivi_layout_add_to_hidden_layer(struct ivi_surface *surf,
+			       struct ivi_output *ivi_output);
+
 #endif
