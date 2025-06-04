@@ -27,6 +27,14 @@ add_project_arguments(
   language: 'c'
 )
 
+add_project_arguments(
+  cc.get_supported_arguments([
+    '-Wno-deprecated',
+    '-Wno-deprecated-declarations'
+  ]),
+  language: 'cpp'
+)
+
 add_project_arguments([
     '-DPACKAGE_STRING="agl-compositor @0@"'.format(meson.project_version()),
     '-D_GNU_SOURCE',
