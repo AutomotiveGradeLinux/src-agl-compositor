@@ -1655,6 +1655,7 @@ compositor_init_config(struct ivi_compositor *ivi)
 	int repaint_msec;
 	bool vt_switching;
 	bool require_input;
+	bool send_frames_to_occluded_surfaces;
 
 	/* agl-compositor.ini [keyboard] */
 	section = weston_config_get_section(config, "keyboard", NULL, NULL);
@@ -1691,6 +1692,10 @@ compositor_init_config(struct ivi_compositor *ivi)
 
 	weston_config_section_get_bool(section, "require-input", &require_input, true);
 	compositor->require_input = require_input;
+
+	weston_config_section_get_bool(section, "send-frame-callback-to-occluded-surface",
+				       &send_frames_to_occluded_surfaces, true);
+	compositor->send_frame_cb_occluded_surface = send_frames_to_occluded_surfaces;
 
 	weston_config_section_get_int(section, "repaint-window", &repaint_msec,
 				      compositor->repaint_msec);
