@@ -1458,7 +1458,7 @@ pipewire_backend_output_configure(struct weston_output *output)
 	api->set_gbm_format(output, gbm_format);
 	free(gbm_format);
 
-	if (api->output_set_size(output, width, height) < 0) {
+	if (api->output_set_size(output, width, height, -1) < 0) {
 		weston_log("Cannot configure output \"%s\" using weston_pipewire_output_api.\n",
 				output->name);
 		return -1;
