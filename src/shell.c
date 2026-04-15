@@ -1091,6 +1091,7 @@ shell_ready(struct wl_client *client, struct wl_resource *shell_res)
 		}
 
 		ivi_layout_init(ivi, output);
+		weston_output_set_ready(output->output);
 	}
 
 	wl_list_for_each_safe(surface, tmp, &ivi->pending_surfaces, link) {
