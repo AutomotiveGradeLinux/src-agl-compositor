@@ -1091,7 +1091,6 @@ shell_ready(struct wl_client *client, struct wl_resource *shell_res)
 		}
 
 		ivi_layout_init(ivi, output);
-		weston_output_set_ready(output->output);
 	}
 
 	wl_list_for_each_safe(surface, tmp, &ivi->pending_surfaces, link) {
@@ -1104,6 +1103,35 @@ shell_ready(struct wl_client *client, struct wl_resource *shell_res)
 		app_id = weston_desktop_surface_get_app_id(surface->dsurface);
 
 		shell_send_app_state(ivi, app_id, AGL_SHELL_APP_STATE_STARTED);
+	}
+}
+
+static void
+background_surface_committed(struct weston_surface *surface, struct weston_coord_surface new_origin)
+{
+	struct ivi_output *ivi_output = surface->committed_private;
+	struct ivi_compositor *ivi = ivi_output->ivi;
+	struct weston_view *view = ivi_output->background->view;
+
+
+	if (!weston_surface_has_content(surface)) {
+		weston_log("WARNING: background has no buffer associated.\n");
+		return;
+	}
+
+	if (!weston_surface_is_mapped(surface)) {
+		weston_surface_map(surface);
+
+		weston_view_set_output(view, ivi_output->output);
+		weston_view_set_position(view, ivi_output->output->pos);
+
+		weston_view_move_to_layer(view, &ivi->background.view_list);
+
+		weston_log("(background) position view %p, x %f, y %f, on output %s\n", view,
+				ivi_output->output->pos.c.x, ivi_output->output->pos.c.y,
+				ivi_output->output->name);
+		weston_log("(background) output ready to present\n");
+		weston_output_set_ready(ivi_output->output);
 	}
 }
 
@@ -1158,6 +1186,10 @@ shell_set_background(struct wl_client *client,
 	surface->checked_pending = true;
 	surface->role = IVI_SURFACE_ROLE_BACKGROUND;
 	surface->bg.output = output;
+
+	wsurface->committed = background_surface_committed;
+	wsurface->committed_private = output;
+
 	wl_list_remove(&surface->link);
 	wl_list_init(&surface->link);
 

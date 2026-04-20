@@ -152,6 +152,11 @@ ivi_background_init(struct ivi_compositor *ivi, struct ivi_output *output)
 	wsurface = weston_desktop_surface_get_surface(bg->dsurface);
 	assert(bg->role == IVI_SURFACE_ROLE_BACKGROUND);
 
+	if (!weston_surface_has_content(wsurface)) {
+		weston_log("WARNING: background has no buffer associated.\n");
+		return;
+	}
+
 	view = bg->view;
 	weston_surface_map(wsurface);
 
@@ -161,6 +166,7 @@ ivi_background_init(struct ivi_compositor *ivi, struct ivi_output *output)
 	weston_view_move_to_layer(view, &ivi->background.view_list);
 	weston_log("(background) position view %p, x %f, y %f, on output %s\n", view,
 			woutput->pos.c.x, woutput->pos.c.y, output->name);
+	weston_output_set_ready(output->output);
 }
 
 static void
