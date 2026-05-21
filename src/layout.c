@@ -59,6 +59,10 @@ ivi_layout_save(struct ivi_compositor *ivi, struct ivi_output *output)
 	ivi->need_ivi_output_relayout = true;
 
 	new_output = zalloc(sizeof(*new_output));
+	if (!new_output) {
+		weston_log("Failed to allocate saved output for %s\n", output->name);
+		return;
+	}
 
 	new_output->ivi = ivi;
 	new_output->background = output->background;
@@ -71,6 +75,11 @@ ivi_layout_save(struct ivi_compositor *ivi, struct ivi_output *output)
 	new_output->active = output->active;
 	new_output->previous_active = output->previous_active;
 	new_output->name = strdup(output->name);
+	if (!new_output->name) {
+		weston_log("Failed to duplicate output name for saved output\n");
+		free(new_output);
+		return;
+	}
 	if (output->app_ids)
 		new_output->app_ids = strdup(output->app_ids);
 
@@ -723,6 +732,11 @@ ivi_layout_fullscreen_committed(struct ivi_surface *surface)
 	struct weston_output *woutput = output->output;
 	struct ivi_output *bg_output = ivi_layout_find_bg_output(ivi);
 
+	if (!bg_output || !bg_output->output) {
+		weston_log("No background output found, cannot commit fullscreen surface\n");
+		return;
+	}
+
 	struct weston_view *view = surface->view;
 	struct weston_geometry geom =
 		weston_desktop_surface_get_geometry(dsurface);
@@ -1108,12 +1122,12 @@ ivi_layout_activate_by_surf(struct ivi_output *output, struct ivi_surface *surf)
 	struct weston_geometry geom;
 	struct ivi_policy *policy = output->ivi->policy;
 
+	if (!surf)
+		return;
+
 	dsurf = surf->dsurface;
 
 	const char *app_id = weston_desktop_surface_get_app_id(dsurf);
-
-	if (!surf)
-		return;
 
 	if (policy && policy->api.surface_activate &&
 	    !policy->api.surface_activate(surf, surf->ivi)) {

@@ -285,9 +285,13 @@ desktop_surface_removed(struct weston_desktop_surface *dsurface, void *userdata)
 	 * the DESKTOP role can happen here as well, because we can fall-back 
 	 * to that when we try to determine the role type. Application that
 	 * do not set the app_id will be land here, when destroyed */
-	if ((output == NULL && (surface->role == IVI_SURFACE_ROLE_NONE ||
-				surface->role == IVI_SURFACE_ROLE_DESKTOP)) ||
-	     output->output == NULL)
+	if (output == NULL ||
+	    (output->output == NULL &&
+	     (surface->role == IVI_SURFACE_ROLE_NONE ||
+	      surface->role == IVI_SURFACE_ROLE_DESKTOP)))
+		goto skip_output_asignment;
+
+	if (output->output == NULL)
 		goto skip_output_asignment;
 
 	assert(output != NULL);

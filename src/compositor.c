@@ -478,6 +478,7 @@ drm_configure_output(struct ivi_output *output)
 		if (parse_transform(t, &transform) < 0)
 			weston_log("Invalid transform \"%s\" for output %s\n",
 				   t, output->name);
+		free(t);
 		weston_config_section_get_string(section, "activation-area", &t, "");
 		if (parse_activation_area(t, output) < 0)
 			weston_log("Invalid activation-area \"%s\" for output %s\n",
@@ -853,7 +854,8 @@ simple_head_disable(struct weston_head *head)
 	struct wl_listener *listener;
 
 	listener = weston_head_get_destroy_listener(head, handle_head_destroy);
-	wl_list_empty(&listener->link);
+	if (listener)
+		wl_list_remove(&listener->link);
 
 	output = weston_head_get_output(head);
 	assert(output);
@@ -1300,8 +1302,10 @@ rdp_backend_output_configure(struct weston_output *output)
 	if (parse_transform(transform_string, &transform) < 0) {
 		weston_log("Invalid transform \"%s\" for output %s\n",
 			   transform_string, output->name);
+		free(transform_string);
 		return -1;
 	}
+	free(transform_string);
 
 
 	new_mode.width = width;
@@ -2124,6 +2128,8 @@ int wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_da
 	if (version) {
 		printf(PACKAGE_STRING "\n");
 		ret = EXIT_SUCCESS;
+		free(cmdline);
+		cmdline = NULL;
 		goto exit_signals;
 	}
 
@@ -2154,6 +2160,10 @@ int wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_da
 						 NULL);
 		if (!backends)
 			backends = choose_default_backend();
+		if (!backends) {
+			weston_log("Failed to determine compositor backend\n");
+			goto error_signals;
+		}
 	}
 
 	display = wl_display_create();
@@ -2282,7 +2292,8 @@ int wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_da
 					   &ivi.screenshot_auth,
 					   screenshot_allow_all);
 	}
-	ivi_agl_systemd_notify(&ivi);
+	if (ivi_agl_systemd_notify(&ivi) < 0)
+		weston_log("Warning: systemd notification setup failed\n");
 
 	wl_display_run(display);
 

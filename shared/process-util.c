@@ -39,6 +39,7 @@
 #include "os-compatibility.h"
 #include "process-util.h"
 #include "string-helpers.h"
+#include "xalloc.h"
 
 extern char **environ; /* defined by libc */
 
@@ -88,8 +89,7 @@ custom_env_init_from_environ(struct custom_env *env)
 	for (it = environ; *it; it++) {
 		ep = wl_array_add(&env->envp, sizeof *ep);
 		assert(ep);
-		*ep = strdup(*it);
-		assert(*ep);
+		*ep = xstrdup(*it);
 	}
 }
 

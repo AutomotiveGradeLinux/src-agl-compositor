@@ -147,17 +147,18 @@ ivi_update_popup(struct ivi_output *ioutput, int x, int y, int bx, int by,
 		 int width, int height, const char *app_id, struct pending_popup *p_popup)
 {
 	size_t len_app_id = strlen(app_id);
+	char *new_app_id;
+
+	new_app_id = zalloc(sizeof(char) * (len_app_id + 1));
+	if (!new_app_id)
+		return;
+	memcpy(new_app_id, app_id, len_app_id);
 
 	wl_list_remove(&p_popup->link);
 	wl_list_init(&p_popup->link);
 
-	memset(p_popup->app_id, 0, strlen(app_id) + 1);
 	free(p_popup->app_id);
-
-	p_popup->app_id = zalloc(sizeof(char) * (len_app_id + 1));
-	if (!p_popup->app_id)
-		return;
-	memcpy(p_popup->app_id, app_id, len_app_id);
+	p_popup->app_id = new_app_id;
 
 	p_popup->ioutput = ioutput;
 	p_popup->x = x;
@@ -193,17 +194,18 @@ ivi_update_fullscreen(struct ivi_output *ioutput, const char *app_id,
 		      struct pending_fullscreen *p_fullscreen)
 {
 	size_t len_app_id = strlen(app_id);
+	char *new_app_id;
+
+	new_app_id = zalloc(sizeof(char) * (len_app_id + 1));
+	if (!new_app_id)
+		return;
+	memcpy(new_app_id, app_id, len_app_id);
 
 	wl_list_remove(&p_fullscreen->link);
 	wl_list_init(&p_fullscreen->link);
 
-	memset(p_fullscreen->app_id, 0, strlen(app_id) + 1);
 	free(p_fullscreen->app_id);
-
-	p_fullscreen->app_id = zalloc(sizeof(char) * (len_app_id + 1));
-	if (!p_fullscreen->app_id)
-		return;
-	memcpy(p_fullscreen->app_id, app_id, len_app_id);
+	p_fullscreen->app_id = new_app_id;
 
 	p_fullscreen->ioutput = ioutput;
 }
@@ -232,17 +234,18 @@ ivi_update_remote(struct ivi_output *ioutput, const char *app_id,
 		      struct pending_remote *p_remote)
 {
 	size_t len_app_id = strlen(app_id);
+	char *new_app_id;
+
+	new_app_id = zalloc(sizeof(char) * (len_app_id + 1));
+	if (!new_app_id)
+		return;
+	memcpy(new_app_id, app_id, len_app_id);
 
 	wl_list_remove(&p_remote->link);
 	wl_list_init(&p_remote->link);
 
-	memset(p_remote->app_id, 0, strlen(app_id) + 1);
 	free(p_remote->app_id);
-
-	p_remote->app_id = zalloc(sizeof(char) * (len_app_id + 1));
-	if (!p_remote->app_id)
-		return;
-	memcpy(p_remote->app_id, app_id, len_app_id);
+	p_remote->app_id = new_app_id;
 
 	p_remote->ioutput = ioutput;
 }
@@ -674,8 +677,8 @@ ivi_shell_advertise_xdg_surfaces(struct ivi_compositor *ivi, struct wl_resource 
 		const char *app_id =
 			weston_desktop_surface_get_app_id(surface->dsurface);
 		if (app_id == NULL) {
-			weston_log("WARNING app_is is null, unable to advertise\n");
-			return;
+			weston_log("WARNING app_id is null, unable to advertise\n");
+			continue;
 		}
 	}
 }
@@ -982,11 +985,9 @@ remove_black_curtain(struct ivi_output *output)
 	struct weston_view *view;
 	struct weston_surface *wsurface;
 
-	if ((!output &&
-	    !output->fullscreen_view.fs &&
-	    !output->fullscreen_view.fs->view) ||
-	    !output->fullscreen_view.fs) {
-		weston_log("Output %s doesn't have a surface installed!\n", output->name);
+	if (!output || !output->fullscreen_view.fs ||
+	    !output->fullscreen_view.fs->view) {
+		weston_log("Output doesn't have a black curtain surface installed!\n");
 		return;
 	}
 
@@ -1006,11 +1007,9 @@ insert_black_curtain(struct ivi_output *output)
 	struct weston_view *view;
 	struct weston_surface *wsurface;
 
-	if ((!output &&
-	    !output->fullscreen_view.fs &&
-	    !output->fullscreen_view.fs->view) ||
-	    !output->output || !output->fullscreen_view.fs) {
-		weston_log("Output %s doesn't have a surface installed!\n", output->name);
+	if (!output || !output->output || !output->fullscreen_view.fs ||
+	    !output->fullscreen_view.fs->view) {
+		weston_log("Output doesn't have a black curtain surface installed!\n");
 		return;
 	}
 
@@ -1604,7 +1603,14 @@ _ivi_set_pending_desktop_surface_split(struct wl_resource *output,
 
 	struct pending_app_tile *app_tile = zalloc(sizeof(*app_tile));
 
+	if (!app_tile)
+		return;
+
 	app_tile->base.app_id = strdup(app_id);
+	if (!app_tile->base.app_id) {
+		free(app_tile);
+		return;
+	}
 	app_tile->base.ioutput = ivi_output;
 	app_tile->base.role = IVI_SURFACE_ROLE_TILE;
 
@@ -1723,9 +1729,9 @@ _ivi_set_shell_surface_split(struct ivi_surface *surface, struct ivi_output *iou
 		weston_log("Resetting tile role to previous role\n");
 	break;
 	default:
-		/* nothing */
-		assert(!"Invalid orientation passed");
-
+		weston_log("Invalid orientation value %u, ignoring split request\n",
+			   orientation);
+		return;
 	}
 
 	x = output->area.x - geom.x;
@@ -1945,6 +1951,7 @@ ivi_compositor_destroy_pending_surfaces(struct ivi_compositor *ivi)
 	struct pending_split *split_surf, *next_split_surf;
 	struct pending_fullscreen *fs_surf, *next_fs_surf;
 	struct pending_remote *remote_surf, *next_remote_surf;
+	struct pending_app *papp, *next_papp;
 
 	wl_list_for_each_safe(p_popup, next_p_popup,
 			      &ivi->popup_pending_apps, link)
@@ -1961,6 +1968,13 @@ ivi_compositor_destroy_pending_surfaces(struct ivi_compositor *ivi)
 	wl_list_for_each_safe(remote_surf, next_remote_surf,
 			      &ivi->remote_pending_apps, link)
 		ivi_remove_pending_desktop_surface_remote(remote_surf);
+
+	wl_list_for_each_safe(papp, next_papp,
+			      &ivi->pending_apps, link) {
+		wl_list_remove(&papp->link);
+		free(papp->app_id);
+		free(papp);
+	}
 }
 
 static void

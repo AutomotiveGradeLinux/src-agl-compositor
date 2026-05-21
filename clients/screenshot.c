@@ -108,19 +108,26 @@ screenshot_create_shm_buffer(struct screenshooter_app *app,
 	size_t bytes_pp;
 	size_t stride;
 
-	assert(width > 0);
-	assert(height > 0);
-	assert(fmt && fmt->bpp > 0);
-	assert(fmt->pixman_format);
+	if (width == 0 || height == 0 || !fmt || fmt->bpp == 0 || !fmt->pixman_format) {
+		fprintf(stderr, "Invalid buffer parameters: %zux%zu\n", width, height);
+		return NULL;
+	}
+
+	/* Guard against integer overflow in stride and total size calculations */
+	bytes_pp = fmt->bpp / 8;
+	if (bytes_pp == 0 || width > SIZE_MAX / bytes_pp) {
+		fprintf(stderr, "Buffer stride overflow for width %zu bpp %u\n",
+			width, fmt->bpp);
+		return NULL;
+	}
+	stride = width * bytes_pp;
+	if (height > SIZE_MAX / stride) {
+		fprintf(stderr, "Buffer size overflow for %zux%zu\n", width, height);
+		return NULL;
+	}
 
 	buffer = xzalloc(sizeof *buffer);
-
-	bytes_pp = fmt->bpp / 8;
-	stride = width * bytes_pp;
 	buffer->len = stride * height;
-
-	assert(width == stride / bytes_pp);
-	assert(height == buffer->len / stride);
 
 	fd = os_create_anonymous_file(buffer->len);
 	if (fd < 0) {
@@ -378,6 +385,14 @@ static void
 screenshooter_output_capture(struct screenshooter_output *output)
 {
 	screenshooter_buffer_destroy(output->buffer);
+
+	if (output->buffer_width <= 0 || output->buffer_height <= 0) {
+		fprintf(stderr, "Invalid output dimensions: %dx%d\n",
+			output->buffer_width, output->buffer_height);
+		output->app->failed = true;
+		return;
+	}
+
 	output->buffer = screenshot_create_shm_buffer(output->app,
 						      output->buffer_width,
 						      output->buffer_height,
