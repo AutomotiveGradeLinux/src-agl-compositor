@@ -29,6 +29,41 @@
 #include <pixman.h>
 
 /**
+ * GL format information to create and manage texture and renderbuffer objects.
+ */
+struct gl_format_info {
+	/** Sized internal format to create texture and renderbuffer objects.
+	 *  See Table 1 of renderer-gl/gl-utils.c for a list a valid formats.
+	 *  Set to 0 if the format isn't supported by GL. */
+	unsigned int internal;
+
+	/** External format and type combination to store texture images from
+	 *  client memory and read back from renderbuffers. See Table 1 of
+	 *  renderer-gl/gl-utils.c for valid combinations.
+	 *
+	 *  DRM formats are little-endian unless explicitly specified (e.g.
+	 *  DRM_FORMAT_RGBA8888 is stored ABGR as sequential bytes in memory).
+	 *  GL uses sequential byte order for single component types (e.g.
+	 *  DRM_FORMAT_RGBA8888 maps to GL_RGBA / GL_UNSIGNED_BYTE). However, GL
+	 *  depends on CPU endianness for special types packing all components
+	 *  in a single type (e.g. DRM_FORMAT_RGBA4444 maps to GL_RGBA /
+	 *  GL_UNSIGNED_SHORT_4_4_4_4). Different swizzles (see below) must be
+	 *  provided in that case in order to support the format on both
+	 *  little-endian and big-endian CPUs (e.g. RGBA on little-endian CPUs
+	 *  and BARG on big-endian CPUs for DRM_FORMAT_RGBA4444).*/
+	unsigned int external;
+	unsigned int type;
+
+	/** Swizzles to reorder color components of texture samples. Supported
+	 *  values are: GL_RED, GL_GREEN, GL_BLUE, GL_ALPHA, GL_ZERO and
+	 * GL_ONE. */
+	union {
+		struct { int r, g, b, a; };
+		int array[4];
+	} swizzles;
+};
+
+/**
  * Contains information about pixel formats, mapping format codes from
  * wl_shm and drm_fourcc.h (which are deliberately identical, but for the
  * special cases of WL_SHM_ARGB8888 and WL_SHM_XRGB8888) into various
@@ -53,14 +88,8 @@ struct pixel_format_info {
 	 *  i.e. alpha channel replaced with X. */
 	uint32_t opaque_substitute;
 
-	/** How the format should be sampled, expressed in terms of tokens
-	 *  from the EGL_WL_bind_wayland_display extension. If not set,
-	 *  assumed to be either RGB or RGBA, depending on whether or not
-	 *  the format contains an alpha channel. The samplers may still
-	 *  return alpha even for opaque formats; users must manually set
-	 *  the alpha channel to 1.0 (or ignore it) if the format is
-	 *  opaque. */
-	uint32_t sampler_type;
+	/** GL format information. */
+	struct gl_format_info gl;
 
 	/** GL internal format; to be used when creating FBO renderbuffers */
 	int gl_internalformat;
@@ -77,6 +106,9 @@ struct pixel_format_info {
 
 	/** GL data type, if data can be natively/directly uploaded. */
 	int gl_type;
+
+	/** Vulkan format, if data can be natively/directly uploaded. */
+	int vulkan_format;
 
 	/** Pixman data type, if it agrees exactly with the wl_shm format */
 	pixman_format_code_t pixman_format;
@@ -126,6 +158,12 @@ struct pixel_format_info {
 		PIXEL_COMPONENT_TYPE_FIXED = 0,
 		PIXEL_COMPONENT_TYPE_FLOAT,
 	} component_type;
+
+	/** How color components are represented. */
+	enum {
+		COLOR_MODEL_RGB = 0,
+		COLOR_MODEL_YUV,
+	} color_model;
 };
 
 /**

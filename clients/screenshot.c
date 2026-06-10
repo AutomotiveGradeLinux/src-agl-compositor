@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Collabora, Ltd.
+ * Copyright 2024-2026 Collabora, Ltd.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -53,6 +53,7 @@ static int opts = 0x0;
 #define OPT_SCREENSHOT_OUTPUT		1
 #define OPT_SHOW_ALL_OUTPUTS		2
 #define OPT_SCREENSHOT_ALL_OUTPUTS	3
+//#define DEBUG
 
 struct screenshooter_app {
 	struct wl_display *display;
@@ -118,7 +119,12 @@ screenshot_create_shm_buffer(struct screenshooter_app *app,
 	bytes_pp = fmt->bpp / 8;
 	stride = width * bytes_pp;
 	buffer->len = stride * height;
-
+#ifdef DEBUG
+	fprintf(stderr, "width %ld, height %ld, bytes_pp %ld, stride %ld, "
+			"buffer->len %ld, bpp %d, pixman_format %x\n",
+			width, height, bytes_pp, stride, buffer->len,
+			fmt->bpp, fmt->pixman_format);
+#endif
 	assert(width == stride / bytes_pp);
 	assert(height == buffer->len / stride);
 
