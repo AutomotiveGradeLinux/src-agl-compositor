@@ -1995,6 +1995,8 @@ usage(int error_code)
 		"  -c, --config=FILE\tConfig file to load, defaults to agl-compositor.ini\n"
 		"  --no-config\t\tDo not read agl-compositor.ini\n"
 		"  --debug\t\tEnable debug extension(s)\n"
+		"  -l\t\tSpecificy debug scopes to subscribe to\n"
+		"  -L\t\tList debug scopes avaiable to subscribe to\n"
 		"  -h, --help\t\tThis help message\n"
 		"\n");
 	exit(error_code);
@@ -2288,6 +2290,7 @@ int wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_da
 		weston_compositor_add_screenshot_authority(ivi.compositor,
 					   &ivi.screenshot_auth,
 					   screenshot_allow_all);
+		weston_compositor_enable_debug_protocol(ivi.compositor);
 	}
 	ivi_agl_systemd_notify(&ivi);
 
