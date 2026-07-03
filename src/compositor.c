@@ -273,6 +273,8 @@ ivi_ensure_output(struct ivi_compositor *ivi, struct ivi_backend *ivi_backend,
 	output->ivi = ivi;
 	output->name = name;
 	output->config = config;
+	output->ready = false;
+	output->pending_ready = false;
 
 	output->output =
 		weston_compositor_create_output(ivi->compositor, head, head->name);

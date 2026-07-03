@@ -1090,6 +1090,7 @@ shell_ready(struct wl_client *client, struct wl_resource *shell_res)
 			remove_black_curtain(output);
 		}
 
+		weston_log("Initialize layout for output %s\n", output->name);
 		ivi_layout_init(ivi, output);
 	}
 
@@ -1131,7 +1132,46 @@ background_surface_committed(struct weston_surface *surface, struct weston_coord
 				ivi_output->output->pos.c.x, ivi_output->output->pos.c.y,
 				ivi_output->output->name);
 		weston_log("(background) output ready to present\n");
+
 		weston_output_set_ready(ivi_output->output);
+		ivi_output->ready = true;
+
+		/* FIXME: this whole thing must be dropped once the embedder
+		 * has a proper way to handle multiple outputs */
+		struct ivi_output *ioutput;
+		wl_list_for_each(ioutput, &ivi->outputs, link) {
+			/* ignore current output */
+			if (ivi_output == ioutput)
+				continue;
+
+			/* and outputs that are already ready and not having
+			 * pending ready */
+			if (ioutput->ready || !ioutput->pending_ready)
+				continue;
+
+			/* output must have back curtain set */
+			if (output_has_black_curtain(ioutput)) {
+				struct weston_output *woutput =
+					ioutput->output;
+				struct weston_view *curtain_view =
+					ioutput->fullscreen_view.fs->view;
+
+				weston_log("Using back curtain as backround for output %s\n",
+						woutput->name);
+
+				weston_view_set_output(curtain_view, woutput);
+				weston_view_set_position(curtain_view, woutput->pos);
+
+				weston_log("(background) position view %p, x %f, y %f, on output %s\n",
+						curtain_view, woutput->pos.c.x,
+						woutput->pos.c.y, woutput->name);
+				weston_output_set_ready(woutput);
+
+				weston_log("Output %s set ready!\n", woutput->name);
+				ioutput->ready = true;
+				ioutput->pending_ready = false;
+			}
+		}
 	}
 }
 

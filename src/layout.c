@@ -145,7 +145,13 @@ ivi_background_init(struct ivi_compositor *ivi, struct ivi_output *output)
 	struct weston_surface *wsurface;
 
 	if (!bg) {
-		weston_log("WARNING: Output does not have a background\n");
+		weston_log("WARNING: Output %s does not have a background\n",
+				woutput->name);
+		if (output_has_black_curtain(output)) {
+			weston_log("Should use back curtain as backround for output %s\n",
+					woutput->name);
+			output->pending_ready = true;
+		}
 		return;
 	}
 
@@ -153,7 +159,8 @@ ivi_background_init(struct ivi_compositor *ivi, struct ivi_output *output)
 	assert(bg->role == IVI_SURFACE_ROLE_BACKGROUND);
 
 	if (!weston_surface_has_content(wsurface)) {
-		weston_log("WARNING: background has no buffer associated.\n");
+		weston_log("WARNING: On output %s background surface has "
+			"no buffer associated.\n", woutput->name);
 		return;
 	}
 
@@ -167,6 +174,7 @@ ivi_background_init(struct ivi_compositor *ivi, struct ivi_output *output)
 	weston_log("(background) position view %p, x %f, y %f, on output %s\n", view,
 			woutput->pos.c.x, woutput->pos.c.y, output->name);
 	weston_output_set_ready(output->output);
+	weston_log("Output %s set ready!\n", woutput->name);
 }
 
 static void

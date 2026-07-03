@@ -206,6 +206,8 @@ struct ivi_output {
 
 	char *app_ids;
 	enum ivi_output_type type;
+	bool ready;
+	bool pending_ready;
 };
 
 enum ivi_surface_role {
