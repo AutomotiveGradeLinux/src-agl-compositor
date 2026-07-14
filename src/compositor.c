@@ -1712,6 +1712,15 @@ compositor_init_config(struct ivi_compositor *ivi)
 	weston_log("Output repaint window is %d ms maximum.\n",
 		   compositor->repaint_msec);
 
+	section = weston_config_get_section(config, "quirks", NULL, NULL);
+
+	/* set by default to false, make it true when running under flutter-auto */
+	weston_config_section_get_bool(section, "flutter-embedder-quirk",
+				       &ivi->quirk_flutter_auto, false);
+
+	weston_log("Flutter embedder quirk enabled: %s\n",
+			ivi->quirk_flutter_auto ? "yes" : "no");
+
 	return 0;
 }
 

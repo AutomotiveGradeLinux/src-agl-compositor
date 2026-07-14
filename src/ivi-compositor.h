@@ -153,6 +153,9 @@ struct ivi_compositor {
 	bool need_ivi_output_relayout;
 	struct wl_list child_process_list;
 	struct dlm_lease *drm_lease;
+
+	/* we require this knob to know if we're running the flutter embedder */
+	bool quirk_flutter_auto;
 };
 
 struct ivi_surface;

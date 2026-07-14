@@ -173,7 +173,8 @@ ivi_background_init(struct ivi_compositor *ivi, struct ivi_output *output)
 	weston_view_move_to_layer(view, &ivi->background.view_list);
 	weston_log("(background) position view %p, x %f, y %f, on output %s\n", view,
 			woutput->pos.c.x, woutput->pos.c.y, output->name);
-	weston_output_set_ready(output->output);
+	if (output->ready)
+		weston_output_set_ready(output->output);
 	weston_log("Output %s set ready!\n", woutput->name);
 }
 

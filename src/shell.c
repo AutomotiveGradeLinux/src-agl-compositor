@@ -1114,7 +1114,6 @@ background_surface_committed(struct weston_surface *surface, struct weston_coord
 	struct ivi_compositor *ivi = ivi_output->ivi;
 	struct weston_view *view = ivi_output->background->view;
 
-
 	if (!weston_surface_has_content(surface)) {
 		weston_log("WARNING: background has no buffer associated.\n");
 		return;
@@ -1131,10 +1130,14 @@ background_surface_committed(struct weston_surface *surface, struct weston_coord
 		weston_log("(background) position view %p, x %f, y %f, on output %s\n", view,
 				ivi_output->output->pos.c.x, ivi_output->output->pos.c.y,
 				ivi_output->output->name);
-		weston_log("(background) output ready to present\n");
-
-		weston_output_set_ready(ivi_output->output);
+		weston_log("(background) output set ready to present\n");
 		ivi_output->ready = true;
+
+		/* for flutter-embedder we need to do it right now, whereas for
+		 * qt we do defer it when we initialize the background */
+		if (ivi_output->ready && ivi->quirk_flutter_auto) {
+			weston_output_set_ready(ivi_output->output);
+		}
 
 		/* FIXME: this whole thing must be dropped once the embedder
 		 * has a proper way to handle multiple outputs */
