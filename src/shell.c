@@ -901,12 +901,6 @@ destroy_black_curtain_view(struct wl_listener *listener, void *data)
 }
 
 
-int
-curtain_get_label(struct weston_surface *surface, char *buf, size_t len)
-{
-	return snprintf(buf, len, "%s", "black curtain");
-}
-
 static void
 curtain_surface_committed(struct weston_surface *es, struct weston_coord_surface new_origin)
 {
@@ -922,11 +916,12 @@ create_black_curtain_view(struct ivi_output *output)
 	struct weston_compositor *ec = ivi->compositor;
 	struct weston_output *woutput = output->output;
 	struct weston_buffer_reference *buffer_ref;
+	char *label;
 
 	if (!woutput)
 		return;
 
-	surface = weston_surface_create(ec);
+	surface = weston_surface_create(ec, NULL);
 	if (!surface)
 		return;
 
@@ -945,7 +940,8 @@ create_black_curtain_view(struct ivi_output *output)
 	weston_surface_attach_solid(surface, buffer_ref,
 				    woutput->width, woutput->height);
 
-	weston_surface_set_label_func(surface, curtain_get_label);
+	str_printf(&label, "black curtain");
+	weston_surface_set_label(surface, label);
 	weston_view_set_position(view, woutput->pos);
 
 	output->fullscreen_view.fs = zalloc(sizeof(struct ivi_surface));
