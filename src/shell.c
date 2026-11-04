@@ -1964,6 +1964,41 @@ void shell_set_app_split(struct wl_client *client, struct wl_resource *res,
 	_ivi_set_shell_surface_split(surf, NULL, orientation, width, sticky, false);
 }
 
+static
+void shell_get_outputs(struct wl_client *client, struct wl_resource *res, const char *app_id)
+{
+	struct ivi_compositor *ivi = wl_resource_get_user_data(res);
+	struct ivi_surface *ivi_surf;
+
+	if (wl_resource_get_version(res) < AGL_SHELL_GET_APP_OUTPUTS_SINCE_VERSION)
+		return;
+
+	wl_list_for_each(ivi_surf, &ivi->surfaces, link) {
+		const char *ivi_surf_app_id =
+			weston_desktop_surface_get_app_id(ivi_surf->dsurface);
+		struct weston_view *ev = ivi_surf->view;
+		struct weston_output *woutput = ev->output;
+
+		if (!ivi_surf_app_id || !woutput) {
+			weston_log("WARNING: ivi_surf_app or an woutput set\n");
+			continue;
+		}
+
+		/* app_id might come in as a empty string so check for that
+		 * rather than trying to match an empty '' */
+		if (app_id && strlen(app_id) > 0) {
+			if (!strcmp(ivi_surf_app_id, app_id)) {
+				agl_shell_send_app_outputs_event(res, app_id,
+								 woutput->name);
+				break;
+			}
+		} else {
+			agl_shell_send_app_outputs_event(res, ivi_surf_app_id,
+							 woutput->name);
+		}
+	}
+}
+
 static void
 shell_ext_destroy(struct wl_client *client, struct wl_resource *res)
 {
@@ -2007,6 +2042,7 @@ static const struct agl_shell_interface agl_shell_implementation = {
 	.set_app_position = shell_set_app_position,
 	.set_app_scale = shell_set_app_scale,
 	.set_app_split = shell_set_app_split,
+	.get_app_outputs = shell_get_outputs,
 };
 
 static const struct agl_shell_ext_interface agl_shell_ext_implementation = {
@@ -2205,7 +2241,7 @@ int
 ivi_shell_create_global(struct ivi_compositor *ivi)
 {
 	ivi->agl_shell = wl_global_create(ivi->compositor->wl_display,
-					  &agl_shell_interface, 11,
+					  &agl_shell_interface, 12,
 					  ivi, bind_agl_shell);
 	if (!ivi->agl_shell) {
 		weston_log("Failed to create wayland global.\n");

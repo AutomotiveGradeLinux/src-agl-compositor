@@ -55,6 +55,20 @@ public:
 	void OnWriteDone(bool ok) override;
 	void NextWrite(void);
 	bool Writting(void);
+	void OnCancel(void) override;
+private:
+	Shell *m_shell;
+	bool m_writting;
+};
+
+class ListerOutputs : public grpc::ServerWriteReactor<::agl_shell_ipc::AppOutputsResponse> {
+public:
+	ListerOutputs(Shell *aglShell);
+	void OnDone() override;
+	void OnCancel(void) override;
+	void OnWriteDone(bool ok) override;
+	void NextWrite(void);
+	bool Writting(void);
 private:
 	Shell *m_shell;
 	bool m_writting;
@@ -105,9 +119,17 @@ public:
 			const ::agl_shell_ipc::AppScaleRequest* request,
 			::agl_shell_ipc::AppScaleResponse* /*response*/) override;
 
+	grpc::ServerUnaryReactor *GetAppOutputs(grpc::CallbackServerContext *context,
+			const ::agl_shell_ipc::GetAppOutputsRequest* request,
+			::agl_shell_ipc::GetAppOutputsResponse* /*response*/) override;
+
 	grpc::ServerWriteReactor< ::agl_shell_ipc::AppStateResponse>* AppStatusState(
 	      ::grpc::CallbackServerContext* /*context*/,
 	      const ::agl_shell_ipc::AppStateRequest* /*request*/)  override;
+
+	grpc::ServerWriteReactor< ::agl_shell_ipc::AppOutputsResponse>* AppOutputs(
+	      ::grpc::CallbackServerContext* /*context*/,
+	      const ::agl_shell_ipc::AppOutputsRequest* /*request*/)  override;
 
 private:
        Shell *m_aglShell = nullptr;

@@ -49,4 +49,5 @@ public:
 	void SetAppOnOutput(const std::string &app_id, const std::string &output);
 	void SetAppPosition(const std::string &app_id, int32_t x, int32_t y);
 	void SetAppScale(const std::string &app_id, int32_t width, int32_t height);
+	void GetAppOutputs(const std::string &app_id);
 };

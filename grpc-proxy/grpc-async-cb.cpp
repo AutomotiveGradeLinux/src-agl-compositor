@@ -53,7 +53,16 @@ Lister::Lister(Shell *shell) : m_shell(shell)
 void
 Lister::OnDone()
 {
+	LOG(">> done\n");
 	delete this;
+}
+
+void
+Lister::OnCancel()
+{
+	LOG("Got onCancel\n");
+
+	m_shell->m_shell_data->server_context_list.pop_back();
 }
 
 void Lister::OnWriteDone(bool ok)
@@ -78,6 +87,57 @@ Lister::NextWrite(void)
 
 bool
 Lister::Writting(void)
+{
+	return m_writting;
+}
+
+// outputs variant
+ListerOutputs::ListerOutputs(Shell *shell) : m_shell(shell)
+{
+	// don't call NextWrite() just yet we do it explicitly when getting
+	// the events from the compositor
+	m_writting = false;
+}
+
+void
+ListerOutputs::OnCancel()
+{
+	LOG("Got onCancel\n");
+	m_shell->m_shell_data->server_context_list_outputs.pop_back();
+}
+
+void
+ListerOutputs::OnDone()
+{
+	LOG(">> done\n");
+	delete this;
+}
+
+void
+ListerOutputs::OnWriteDone(bool ok)
+{
+	LOG(">> got ok = %d\n", ok);
+
+	if (ok) {
+		LOG("done writting %d\n", m_writting);
+		m_writting = false;
+	}
+}
+
+void
+ListerOutputs::NextWrite(void)
+{
+	if (m_writting) {
+		LOG(">>>>> still in writting\n");
+		return;
+	}
+	m_writting = true;
+	LOG(">>>>> start writting\n");
+	StartWrite(&m_shell->m_shell_data->current_app_output);
+}
+
+bool
+ListerOutputs::Writting(void)
 {
 	return m_writting;
 }
@@ -270,6 +330,42 @@ GrpcServiceImpl::AppStatusState(grpc::CallbackServerContext* context,
 
 	Lister *n = new Lister(m_aglShell);
 	m_aglShell->m_shell_data->server_context_list.push_back(std::pair(context, n));
+	LOG("added lister %p\n", static_cast<void *>(n));
+
+	// just return a Lister to keep the channel open
+	return n;
+}
+
+grpc::ServerUnaryReactor *
+GrpcServiceImpl::GetAppOutputs(grpc::CallbackServerContext *context,
+                            const ::agl_shell_ipc::GetAppOutputsRequest* request,
+                            ::agl_shell_ipc::GetAppOutputsResponse* /* response */)
+{
+	if (!m_aglShell) {
+		LOG("m_aglShell not set-up\n");
+		return nullptr;
+	}
+
+	m_aglShell->GetAppOutputs(request->app_id());
+
+	grpc::ServerUnaryReactor* reactor = context->DefaultReactor();
+	reactor->Finish(grpc::Status::OK);
+	return reactor;
+}
+
+grpc::ServerWriteReactor<::agl_shell_ipc::AppOutputsResponse>*
+GrpcServiceImpl::AppOutputs(grpc::CallbackServerContext* context,
+				 const ::agl_shell_ipc::AppOutputsRequest* /*request */)
+{
+
+
+	if (!m_aglShell) {
+		LOG(">> m_aglShell not set-up\n");
+		return nullptr;
+	}
+
+	ListerOutputs *n = new ListerOutputs(m_aglShell);
+	m_aglShell->m_shell_data->server_context_list_outputs.push_back(std::pair(context, n));
 	LOG("added lister %p\n", static_cast<void *>(n));
 
 	// just return a Lister to keep the channel open

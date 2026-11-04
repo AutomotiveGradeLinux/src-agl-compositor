@@ -165,3 +165,12 @@ Shell::SetAppSplit(const std::string &app_id, uint32_t orientation,
 	agl_shell_set_app_split(shell, app_id.c_str(), orientation, width, sticky, w_output->output);
 	wl_display_flush(m_shell_data->wl_display);
 }
+
+void
+Shell::GetAppOutputs(const std::string &app_id)
+{
+	struct agl_shell *shell = this->m_shell.get();
+
+	agl_shell_get_app_outputs(shell, app_id.c_str());
+	wl_display_flush(m_shell_data->wl_display);
+}

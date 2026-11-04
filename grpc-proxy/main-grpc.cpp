@@ -108,12 +108,39 @@ agl_shell_app_on_output(void *data, struct agl_shell *agl_shell,
 	LOG("got app_on_output event app_id %s on output %s\n", app_id, output_name);
 }
 
+static void
+agl_shell_outputs_event(void *data, struct agl_shell *agl_shell,
+		const char *app_id, const char *output_name)
+{
+	(void) agl_shell;
+	struct shell_data *sh = static_cast<struct shell_data *>(data);
+
+	if (sh->server_context_list_outputs.empty())
+		return;
+
+	::agl_shell_ipc::AppOutputsResponse app;
+
+	sh->current_app_output.set_app_id(std::string(app_id));
+	sh->current_app_output.set_output_name(std::string(output_name));
+
+	auto start = sh->server_context_list_outputs.begin();
+	while (start != sh->server_context_list_outputs.end()) {
+		if (start->second->Writting()) {
+			LOG("skip writing to lister %p\n", static_cast<void *>(start->second));
+			continue;
+		}
+		LOG("writing to lister %p\n", static_cast<void *>(start->second));
+		start->second->NextWrite();
+		start++;
+	}
+}
 
 static const struct agl_shell_listener shell_listener = {
 	agl_shell_bound_ok,
 	agl_shell_bound_fail,
 	agl_shell_app_state,
 	agl_shell_app_on_output,
+	agl_shell_outputs_event,
 };
 
 static void
@@ -351,7 +378,7 @@ register_shell_ext(void)
 		if (it->interface_name == "agl_shell") {
 			sh->shell =
 				static_cast<struct agl_shell *>(wl_registry_bind(registry, it->id,
-					&agl_shell_interface, std::min(static_cast<uint32_t>(11),
+					&agl_shell_interface, std::min(static_cast<uint32_t>(12),
 						it->version))
 				);
 			agl_shell_add_listener(sh->shell, &shell_listener, sh);

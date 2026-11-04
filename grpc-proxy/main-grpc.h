@@ -37,6 +37,7 @@
 
 // forward declaration created in grpc-async-cb
 class Lister;
+class ListerOutputs;
 
 struct global_data {
 	uint32_t id;
@@ -61,6 +62,10 @@ struct shell_data {
 
 	::agl_shell_ipc::AppStateResponse current_app_state;
 	std::list<std::pair<grpc::CallbackServerContext*, Lister *> > server_context_list;
+
+	::agl_shell_ipc::AppOutputsResponse current_app_output;
+	std::list<std::pair<grpc::CallbackServerContext*, ListerOutputs *> > server_context_list_outputs;
+
 	std::list<global_data> globals;
 };
 

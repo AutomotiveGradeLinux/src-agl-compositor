@@ -22,7 +22,7 @@
     FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
     DEALINGS IN THE SOFTWARE.
   </copyright>
-  <interface name="agl_shell" version="11">
+  <interface name="agl_shell" version="12">
     <description summary="user interface for Automotive Grade Linux platform">
       Starting with version 2 of the protocol, the client is required to wait
       for the 'bound_ok' or 'bound_fail' events in order to proceed further.
@@ -424,6 +424,26 @@
       <arg name="sticky" type="int" summary="make the split window stiky"/>
       <arg name="output" type="object" interface="wl_output"/>
     </request>
+
+    <request name="get_app_outputs" since="12">
+      <description summary="grab the output or all outputs where the applications are placed on">
+      Clients can use this request to find out where a particular app_id was being
+      placed by the compositor. app_id can be NULL, moment in which the compositor will emit
+      a outputs_event for each app_id is aware of. This request is different that set_app_output
+      because it can be used to query current output information rather than waiting for app_on_output
+      event to be sent as a reponse to set_app_output request.
+      </description>
+      <arg name="app_id" type="string" summary="retrieve output information for the specified app_id"/>
+    </request>
+
+    <event name="app_outputs_event" since="12">
+     <description summary="event sent for get_app_outputs">
+      This event will be sent out as in response of get_outputs. Note that output_name will still
+      be set to a output name even if app_id is not current mapped.
+     </description>
+      <arg name="app_id" type="string" summary="app_id"/>
+      <arg name="output" type="string" summary="output name"/>
+    </event>
   </interface>
 
   <interface name="agl_shell_ext" version="1">

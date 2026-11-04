@@ -15,6 +15,10 @@ service AglShellManagerService {
        rpc SetAppOnOutput(AppOnOutputRequest)		returns (AppOnOutputResponse) {}
        rpc SetAppPosition(AppPositionRequest)		returns (AppPositionResponse) {}
        rpc SetAppScale(AppScaleRequest)			returns (AppScaleResponse) {}
+
+       // use GetAppOutputs as request and AppOutputs as an async response
+       rpc GetAppOutputs(GetAppOutputsRequest)		returns (GetAppOutputsResponse) {}
+       rpc AppOutputs(AppOutputsRequest)		returns (stream AppOutputsResponse) {}
 }
 
 message ActivateRequest {
@@ -110,4 +114,21 @@ message AppScaleRequest {
 };
 
 message AppScaleResponse {
+};
+
+// GetAppOutputsRequest is matched with a AppOutputsResponse event
+message GetAppOutputsRequest {
+	string app_id = 1;
+};
+
+message GetAppOutputsResponse {
+};
+
+// for the events which clients must listen
+message AppOutputsRequest {
+};
+
+message AppOutputsResponse {
+	string app_id = 1;
+	string output_name = 2;
 };
